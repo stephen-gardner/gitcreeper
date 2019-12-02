@@ -1,0 +1,14 @@
+{
+  "KLogin": "alain@42.US.ORG",
+  "KeytabPath": "/Users/stephen/keytabs/alain.keytab",
+  "ClonePath": "/tmp/creeped",
+  "StartDate": "2019-11-15T00:00:00.000Z",
+  "CampusID": "7",
+  "CursusID": "1",
+  "DaysUntilStagnant": 7,
+  "ProjectWhitelist": [
+    1,
+    2,
+    3
+  ]
+}

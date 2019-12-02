@@ -35,7 +35,7 @@ type Team struct {
 
 func (team *Team) getPath() string {
 	if team.path == "" {
-		team.path = filepath.Join(cloneDest, strconv.Itoa(team.TeamID))
+		team.path = filepath.Join(config.ClonePath, strconv.Itoa(team.TeamID))
 	}
 	return team.path
 }
@@ -85,7 +85,7 @@ func (team *Team) checkStagnant(expirationDate time.Time) error {
 		return nil
 	}
 	dateStr := strings.Trim(strings.SplitN(string(out), ":", 2)[1], " \n")
-	parsed, err := time.Parse("Mon Jan 2 15:04:05 2006 -0700", dateStr)
+	parsed, err := time.Parse(gitTimeFormat, dateStr)
 	if err == nil && parsed.Sub(expirationDate) <= 0 {
 		team.lastUpdate = &parsed
 		team.stagnant = true
@@ -136,13 +136,13 @@ func getAllTeams(params map[string]string) ([]Team, error) {
 
 func getStagnantTeams() []Team {
 	var stagnantTeams []Team
-	expirationDate := time.Now().Add(- (daysUntilStagnant * 24 * time.Hour))
+	expirationDate := time.Now().Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
 	teams, err := getAllTeams(
 		map[string]string{
-			"filter[primary_campus]": campusID,
-			"filter[active_cursus]":  cursusID,
+			"filter[primary_campus]": config.CampusID,
+			"filter[active_cursus]":  config.CursusID,
 			"filter[closed]":         "false",
-			"range[created_at]":      startDate + "," + expirationDate.Format(intraTimeFormat),
+			"range[created_at]":      config.StartDate + "," + expirationDate.Format(intraTimeFormat),
 			"page[size]":             "100",
 		},
 	)
@@ -154,12 +154,12 @@ func getStagnantTeams() []Team {
 	}
 	for i := range teams {
 		team := &teams[i]
+		if !isWhitelisted(team.ProjectID) || team.RepoURL == "" {
+			continue
+		}
 		proj, err := getProject(team.ProjectID)
 		if err != nil {
 			log.Printf("Error retrieving project info for ID %d: %s", team.ProjectID, err)
-			continue
-		}
-		if proj.Exam || team.RepoURL == "" {
 			continue
 		}
 		fmt.Printf("Checking %d <%s> (%s)...\n", team.TeamID, proj.Name, team.getIntraIDs())

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
@@ -11,12 +13,21 @@ import (
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-const campusID = "7"
-const cursusID = "1"
+type Config struct {
+	KLogin            string
+	KeytabPath        string
+	ClonePath         string
+	StartDate         string
+	CampusID          string
+	CursusID          string
+	DaysUntilStagnant int
+	ProjectWhitelist  []int
+}
+
 const intraTimeFormat = "2006-01-02T15:04:05.000Z"
-const startDate = "2019-11-15T00:00:00.000Z"
-const daysUntilStagnant = 7
-const cloneDest = "/tmp/creeped"
+const gitTimeFormat = "Mon Jan 2 15:04:05 2006 -0700"
+
+var config Config
 
 func getClient(ctx context.Context, scopes ...string) *http.Client {
 	oauth := clientcredentials.Config{
@@ -43,12 +54,27 @@ func getEndpoint(path string, options map[string]string) string {
 	return baseURL.String()
 }
 
+func isWhitelisted(projectID int) bool {
+	for _, ID := range config.ProjectWhitelist {
+		if ID == projectID {
+			return true
+		}
+	}
+	return false
+}
+
 func main() {
-	err := exec.Command(
-		"/bin/sh",
-		"-c", "kinit -kt '/Users/stephen/keytabs/alain.keytab' alain@42.US.ORG",
-	).Run()
+	data, err := ioutil.ReadFile("config.json")
+	if err == nil {
+		err = json.Unmarshal(data, &config)
+	}
 	if err != nil {
+		log.Fatal(err)
+	}
+	if err = exec.Command(
+		"/bin/sh",
+		"-c", fmt.Sprintf("kinit -kt '%s' %s", config.KeytabPath, config.KLogin),
+	).Run(); err != nil {
 		log.Fatalf("Error authenticating via Kerberos: %s\n", err)
 	}
 	stagnantTeams := getStagnantTeams()
