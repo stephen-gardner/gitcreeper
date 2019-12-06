@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/smtp"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -93,6 +96,53 @@ func (team *Team) checkStagnant(expirationDate time.Time) error {
 	return err
 }
 
+func (team *Team) sendEmail() error {
+	to := make([]string, len(team.Users))
+	for i := range team.Users {
+		to[i] = team.Users[i].Login + "@student.42.us.org"
+	}
+	project, err := team.getProject()
+	if err != nil {
+		return err
+	}
+	tmpl, err := template.ParseFiles("templates/email.html")
+	if err != nil {
+		return err
+	}
+	var body bytes.Buffer
+	var timeElapsed string
+	if team.lastUpdate != nil {
+		timeElapsed = strconv.Itoa(int(time.Now().Sub(*team.lastUpdate).Hours() / 24)) + " days ago"
+	} else {
+		timeElapsed = "never"
+	}
+	err = tmpl.Execute(&body, struct {
+		From              string
+		To                string
+		ProjectName       string
+		LastCommitDate    string
+		TimeElapsed       string
+		DaysUntilStagnant int
+	}{
+		From:              config.EmailFromAddress,
+		To:                strings.Join(to, ","),
+		ProjectName:       project.Name,
+		LastCommitDate:    team.lastUpdate.String(),
+		TimeElapsed:       timeElapsed,
+		DaysUntilStagnant: config.DaysUntilStagnant,
+	})
+	if err != nil {
+		return err
+	}
+	bytes.ReplaceAll(body.Bytes(), []byte("\n"), []byte("\r\n"))
+	err = smtp.SendMail(config.EmailServerAddress, nil, config.EmailFromAddress, to, body.Bytes())
+	return err
+}
+
+func (team *Team) getProject() (*Project, error) {
+	return getProject(team.ProjectID)
+}
+
 func getTeams(client *http.Client, endpoint string) ([]Team, error) {
 	resp, err := client.Get(endpoint)
 	if err != nil {
@@ -157,7 +207,7 @@ func getStagnantTeams() []Team {
 		if !isWhitelisted(team.ProjectID) || team.RepoURL == "" {
 			continue
 		}
-		proj, err := getProject(team.ProjectID)
+		proj, err := team.getProject()
 		if err != nil {
 			log.Printf("Error retrieving project info for ID %d: %s", team.ProjectID, err)
 			continue

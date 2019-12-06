@@ -4,24 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"golang.org/x/oauth2/clientcredentials"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
 	"os/exec"
-
-	"golang.org/x/oauth2/clientcredentials"
 )
 
 type Config struct {
-	KLogin            string
-	KeytabPath        string
-	ClonePath         string
-	StartDate         string
-	CampusID          string
-	CursusID          string
-	DaysUntilStagnant int
-	ProjectWhitelist  []int
+	KLogin             string
+	KeytabPath         string
+	ClonePath          string
+	EmailServerAddress string
+	EmailFromAddress   string
+	StartDate          string
+	CampusID           string
+	CursusID           string
+	DaysUntilStagnant  int
+	ProjectWhitelist   []int
 }
 
 const intraTimeFormat = "2006-01-02T15:04:05.000Z"
@@ -79,13 +80,8 @@ func main() {
 	}
 	stagnantTeams := getStagnantTeams()
 	for _, team := range stagnantTeams {
-		res := ""
-		if team.lastUpdate != nil {
-			res = fmt.Sprintf("stagnant [last commit: %s]", team.lastUpdate.String())
-		} else {
-			res += "stagnant [no commits]"
+		if err := team.sendEmail(); err != nil {
+			log.Println(err)
 		}
-		proj, _ := getProject(team.ProjectID)
-		fmt.Printf("%d <%s> (%s) is %s\n", team.TeamID, proj.Name, team.getIntraIDs(), res)
 	}
 }
