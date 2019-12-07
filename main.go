@@ -1,18 +1,19 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2/clientcredentials"
 	"io/ioutil"
 	"log"
-	"net/http"
-	"net/url"
 	"os/exec"
+	"strings"
+	"time"
 )
 
 type Config struct {
+	IntraClientID      string
+	IntraClientSecret  string
+	RepoServer         string
 	KLogin             string
 	KeytabPath         string
 	ClonePath          string
@@ -30,31 +31,6 @@ const gitTimeFormat = "Mon Jan 2 15:04:05 2006 -0700"
 
 var config Config
 
-func getClient(ctx context.Context, scopes ...string) *http.Client {
-	oauth := clientcredentials.Config{
-		ClientID:     "025fe928cedf48c95ec5d98a30b5ad4862c200f58d53398f5c8f2a1609b798e1",
-		ClientSecret: "03af0c8cacd386fd0b2c6efcd9fa33d444fac016a24a0676a110754ef9452f5a",
-		TokenURL:     "https://api.intra.42.fr/oauth/token",
-		Scopes:       scopes,
-	}
-	return oauth.Client(ctx)
-}
-
-func getEndpoint(path string, options map[string]string) string {
-	baseURL, err := url.Parse("https://api.intra.42.fr/v2/")
-	if err != nil {
-		log.Println(err)
-		return ""
-	}
-	baseURL.Path += path
-	params := url.Values{}
-	for key, value := range options {
-		params.Add(key, value)
-	}
-	baseURL.RawQuery = params.Encode()
-	return baseURL.String()
-}
-
 func isWhitelisted(projectID int) bool {
 	for _, ID := range config.ProjectWhitelist {
 		if ID == projectID {
@@ -62,6 +38,54 @@ func isWhitelisted(projectID int) bool {
 		}
 	}
 	return false
+}
+
+func getStagnantTeams() []Team {
+	var stagnantTeams []Team
+	expirationDate := time.Now().Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
+	teams, err := getAllTeams(
+		map[string]string{
+			"filter[primary_campus]": config.CampusID,
+			"filter[active_cursus]":  config.CursusID,
+			"filter[closed]":         "false",
+			"range[created_at]":      config.StartDate + "," + expirationDate.Format(intraTimeFormat),
+			"page[size]":             "100",
+		},
+	)
+	if err != nil {
+		log.Println(err)
+		if len(teams) == 0 {
+			return stagnantTeams
+		}
+	}
+	for _, team := range teams {
+		if !isWhitelisted(team.ProjectID) || !strings.HasPrefix(team.RepoURL, config.RepoServer) {
+			continue
+		}
+		proj, err := team.getProject()
+		if err != nil {
+			log.Printf("Error retrieving project info for ID %d: %s\n", team.ProjectID, err)
+			continue
+		}
+		fmt.Printf(
+			"Checking %d <%s> (%s)...\n",
+			team.TeamID,
+			proj.Name,
+			strings.Join(team.getIntraIDs(), ", "),
+		)
+		if err = team.cloneRepo(); err == nil {
+			stagnant := false
+			stagnant, err = team.isStagnant(expirationDate)
+			if err == nil && stagnant {
+				stagnantTeams = append(stagnantTeams, team)
+			}
+			team.deleteClone()
+		}
+		if err != nil {
+			log.Println(err)
+		}
+	}
+	return stagnantTeams
 }
 
 func main() {
@@ -79,6 +103,7 @@ func main() {
 		log.Fatalf("Error authenticating via Kerberos: %s\n", err)
 	}
 	stagnantTeams := getStagnantTeams()
+	fmt.Printf("%d teams have stagnated; sending emails...\n", len(stagnantTeams))
 	for _, team := range stagnantTeams {
 		if err := team.sendEmail(); err != nil {
 			log.Println(err)
