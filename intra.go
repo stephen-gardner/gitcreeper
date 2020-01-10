@@ -9,35 +9,13 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"golang.org/x/oauth2/clientcredentials"
 )
 
-type (
-	Project struct {
-		ProjectID int    `json:"id"`
-		Name      string `json:"name"`
-		Exam      bool   `json:"exam"`
-	}
-
-	Team struct {
-		TeamID     int        `json:"id"`
-		ProjectID  int        `json:"project_id"`
-		RepoURL    string     `json:"repo_url"`
-		Users      []User     `json:"users"`
-		lastUpdate *time.Time `json:"-"`
-	}
-
-	User struct {
-		UserID         int    `json:"id"`
-		Login          string `json:"login"`
-		ProjectsUserID int    `json:"projects_user_id"`
-	}
-)
-
-var projects = make(map[int]*Project)
+var intraCache = make(map[string]interface{})
+var rateLimit = time.Tick(time.Millisecond * 750)
 
 func getClient(ctx context.Context, scopes ...string) *http.Client {
 	oauth := clientcredentials.Config{
@@ -64,69 +42,24 @@ func getEndpoint(path string, options map[string]string) string {
 	return baseURL.String()
 }
 
-func getProject(ID int) (*Project, error) {
-	if p, ok := projects[ID]; ok {
-		return p, nil
-	}
-	client := getClient(context.Background(), "public", "projects")
-	endpoint := getEndpoint("projects/"+strconv.Itoa(ID), map[string]string{})
-	resp, err := client.Get(endpoint)
+func runIntraRequest(client *http.Client, method, endpoint string, obj interface{}) error {
+	//<-rateLimit
+	req, err := http.NewRequest(method, endpoint, nil)
 	if err != nil {
-		return nil, err
+		return err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("Intra error [Response: %d]", resp.StatusCode))
+		return errors.New(fmt.Sprintf("Intra error [Response: %d]", resp.StatusCode))
 	}
 	respData, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	p := &Project{}
-	err = json.Unmarshal(respData, &p)
-	if err == nil {
-		projects[ID] = p
-	}
-	return p, err
-}
-
-func getTeamsPage(client *http.Client, params map[string]string, pageNumber int) ([]Team, error) {
-	params["page[number]"] = strconv.Itoa(pageNumber)
-	endpoint := getEndpoint("teams", params)
-	resp, err := client.Get(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("Intra error [Response: %d]", resp.StatusCode))
-	}
-	respData, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var teams []Team
-	err = json.Unmarshal(respData, &teams)
-	return teams, err
-}
-
-func getAllTeams(params map[string]string) ([]Team, error) {
-	client := getClient(context.Background(), "public", "projects")
-	pageNumber := 1
-	if num, ok := params["page[number]"]; ok {
-		pageNumber, _ = strconv.Atoi(num)
-	}
-	var teams []Team
-	for {
-		res, err := getTeamsPage(client, params, pageNumber)
-		if err != nil {
-			return teams, err
-		}
-		if len(res) == 0 {
-			break
-		}
-		teams = append(teams, res...)
-		pageNumber++
-	}
-	return teams, nil
+	err = json.Unmarshal(respData, obj)
+	return err
 }

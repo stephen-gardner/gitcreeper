@@ -1,16 +1,21 @@
 {
   "IntraClientID": "025fe928cedf48c95ec5d98a30b5ad4862c200f58d53398f5c8f2a1609b798e1",
   "IntraClientSecret": "03af0c8cacd386fd0b2c6efcd9fa33d444fac016a24a0676a110754ef9452f5a",
-  "RepoServer": "vogsphere@vgs.42.us.org",
-  "KLogin": "alain@42.US.ORG",
-  "KeytabPath": "/Users/stephen/keytabs/alain.keytab",
-  "ClonePath": "/tmp/creeped",
+  "RepoDomain": "42.us.org",
+  "RepoAddress": "vgs-fd.42.us.org",
+  "RepoPort": 4222,
+  "RepoUser": "gitcreeper",
+  "RepoPrivateKeyPath": "/Users/stephen/.ssh/gitcreeper_id_rsa",
+  "RepoPath": "/space/repos",
   "EmailServerAddress": "smtp.42.us.org:25",
   "EmailFromAddress": "gitcreeper-no-reply@42.us.org",
   "StartDate": "2016-09-21T08:42:00.000Z",
-  "CampusID": "7",
-  "CursusID": "1",
   "DaysUntilStagnant": 7,
+  "CampusID": 7,
+  "CursusIDs": [
+    1,
+    18
+  ],
   "ProjectWhitelist": [
     1,
     2,
