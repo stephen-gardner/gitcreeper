@@ -1,26 +1,25 @@
-package main
+package intra
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"net/url"
-	"time"
+	"os"
+	"strconv"
 
 	"golang.org/x/oauth2/clientcredentials"
 )
 
 var intraCache = make(map[string]interface{})
-var rateLimit = time.Tick(time.Millisecond * 750)
 
 func getClient(ctx context.Context, scopes ...string) *http.Client {
 	oauth := clientcredentials.Config{
-		ClientID:     config.IntraClientID,
-		ClientSecret: config.IntraClientSecret,
+		ClientID:     os.Getenv("INTRA_CLIENT_ID"),
+		ClientSecret: os.Getenv("INTRA_CLIENT_SECRET"),
 		TokenURL:     "https://api.intra.42.fr/oauth/token",
 		Scopes:       scopes,
 	}
@@ -42,24 +41,40 @@ func getEndpoint(path string, options map[string]string) string {
 	return baseURL.String()
 }
 
-func runIntraRequest(client *http.Client, method, endpoint string, obj interface{}) error {
-	//<-rateLimit
+func runRequest(client *http.Client, method, endpoint string) ([]byte, error) {
 	req, err := http.NewRequest(method, endpoint, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return errors.New(fmt.Sprintf("Intra error [Response: %d]", resp.StatusCode))
+		return nil, errors.New(fmt.Sprintf("Intra error [Response: %d]", resp.StatusCode))
 	}
-	respData, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return err
+	return ioutil.ReadAll(resp.Body)
+}
+
+func getAll(client *http.Client, endpoint string, params map[string]string) ([][]byte, error) {
+	var res [][]byte
+	pageNumber := 1
+	if num, ok := params["page[number]"]; ok {
+		pageNumber, _ = strconv.Atoi(num)
 	}
-	err = json.Unmarshal(respData, obj)
-	return err
+	for {
+		params["page[number]"] = strconv.Itoa(pageNumber)
+		endpoint := getEndpoint(endpoint, params)
+		page, err := runRequest(client, "GET", endpoint)
+		if err != nil {
+			return res, err
+		}
+		if len(page) == 2 {
+			break
+		}
+		res = append(res, page)
+		pageNumber++
+	}
+	return res, nil
 }

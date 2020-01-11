@@ -9,11 +9,11 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"gitcreeper/intra"
 )
 
 type Config struct {
-	IntraClientID      string
-	IntraClientSecret  string
 	RepoDomain         string
 	RepoAddress        string
 	RepoPort           int
@@ -35,12 +35,10 @@ const gitTimeFormat = "Mon Jan 2 15:04:05 2006 -0700"
 var config Config
 var projectWhitelist = make(map[int]bool)
 
-func getStagnantTeams() {
-	fmt.Println("Getting eligible teams from 42 Intra...")
+func getEligibleTeams(expirationDate time.Time) (teams intra.Teams) {
+	fmt.Printf("Getting eligible teams from 42 Intra...\n")
 	cursus := strings.Trim(strings.Join(strings.Fields(fmt.Sprint(config.CursusIDs)), ","), "[]")
-	expirationDate := time.Now().Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
-	var teams Teams
-	if err := getAllTeams(
+	teams, err := intra.GetAllTeams(
 		context.Background(),
 		map[string]string{
 			"filter[primary_campus]": strconv.Itoa(config.CampusID),
@@ -49,50 +47,32 @@ func getStagnantTeams() {
 			"range[created_at]":      config.StartDate + "," + expirationDate.Format(intraTimeFormat),
 			"page[size]":             "100",
 		},
-		&teams,
-	); err != nil {
+	)
+	if err != nil {
 		log.Println(err)
-		if len(teams) == 0 {
-			return
-		}
 	}
+	return
+}
+
+func processTeams(teams intra.Teams, expirationDate time.Time) {
+	fmt.Printf("Processing...\n\n")
 	count := 0
 	for _, team := range teams {
 		_, whitelisted := projectWhitelist[team.ProjectID]
 		if !whitelisted || !strings.Contains(team.RepoURL, config.RepoDomain) {
 			continue
 		}
-		proj, err := team.getProject(context.Background(), false)
-		if err != nil {
-			log.Printf("Error retrieving project info for ID %d: %s\n", team.ProjectID, err)
-			continue
-		}
-		fmt.Printf(
-			"Checking <%d> %s (%s)... ",
-			team.ID,
-			proj.Name,
-			strings.Join(team.getIntraIDs(), ", "),
-		)
-		stagnant, lastUpdate, err := team.checkStagnant(expirationDate)
-		if err == nil {
-			if stagnant {
-				fmt.Printf("STAGNANT")
-				count++
-				//err = team.sendEmail(lastUpdate)
-			} else {
-				fmt.Printf("OK")
-			}
-			lastUpdateStr := "never"
-			if lastUpdate != nil {
-				lastUpdateStr = lastUpdate.String()
-			}
-			fmt.Printf(" [last update: %s]\n", lastUpdateStr)
-		}
+		stagnant, _, err := checkStagnant(&team, expirationDate)
 		if err != nil {
 			log.Println(err)
+			continue
+		}
+		if stagnant {
+			//err = sendEmail(&team, lastUpdate)
+			count++
 		}
 	}
-	fmt.Println(count, "teams have stagnated")
+	fmt.Printf("\n%d total teams have stagnated\n", count)
 }
 
 func main() {
@@ -106,5 +86,7 @@ func main() {
 	for _, ID := range config.ProjectWhitelist {
 		projectWhitelist[ID] = true
 	}
-	getStagnantTeams()
+	expirationDate := time.Now().Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
+	teams := getEligibleTeams(expirationDate)
+	processTeams(teams, expirationDate)
 }
