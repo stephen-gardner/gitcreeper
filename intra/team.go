@@ -46,11 +46,14 @@ func GetTeam(ctx context.Context, bypassCache bool, ID int) (*Team, error) {
 		team := t.(Team)
 		return &team, nil
 	}
-	teams, err := GetAllTeams(ctx, map[string]string{"filter[id]": strconv.Itoa(ID)})
-	if err != nil {
-		return nil, err
+	teams, err := GetAllTeams(ctx, map[string]string{
+		"filter[id]":   strconv.Itoa(ID),
+		"page[number]": "1",
+	})
+	if err == nil && len(teams) > 0 {
+		return &teams[0], nil
 	}
-	return &teams[0], nil
+	return nil, err
 }
 
 func GetAllTeams(ctx context.Context, params map[string]string) (Teams, error) {

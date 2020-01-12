@@ -25,7 +25,7 @@ func getIntraIDs(team *intra.Team) []string {
 
 func getProjectName(team *intra.Team) string {
 	project, err := intra.GetProject(context.Background(), false, team.ProjectID)
-	if err != nil {
+	if err != nil || project == nil {
 		log.Printf("Error retrieving project info for ID %d: %s\n", team.ProjectID, err)
 		return "Unknown Project"
 	} else {
@@ -83,7 +83,7 @@ func sendEmail(team *intra.Team, lastUpdate *time.Time) error {
 	for i := range team.Users {
 		to[i] = team.Users[i].Login + "@student.42.us.org"
 	}
-	tmpl, err := template.ParseFiles("templates/email.html")
+	tmpl, err := template.ParseFiles("templates/warning_email.html")
 	if err != nil {
 		return err
 	}

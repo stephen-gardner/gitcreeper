@@ -24,7 +24,10 @@ func GetProject(ctx context.Context, bypassCache bool, ID int) (*Project, error)
 		proj := p.(Project)
 		return &proj, nil
 	}
-	projects, err := GetAllProjects(ctx, map[string]string{"filter[id]": IDStr})
+	projects, err := GetAllProjects(ctx, map[string]string{
+		"filter[id]":   IDStr,
+		"page[number]": "1",
+	})
 	if err == nil && len(projects) > 0 {
 		return &projects[0], nil
 	}

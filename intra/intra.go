@@ -60,8 +60,10 @@ func runRequest(client *http.Client, method, endpoint string) ([]byte, error) {
 func getAll(client *http.Client, endpoint string, params map[string]string) ([][]byte, error) {
 	var res [][]byte
 	pageNumber := 1
+	singlePage := false
 	if num, ok := params["page[number]"]; ok {
 		pageNumber, _ = strconv.Atoi(num)
+		singlePage = true
 	}
 	for {
 		params["page[number]"] = strconv.Itoa(pageNumber)
@@ -70,7 +72,10 @@ func getAll(client *http.Client, endpoint string, params map[string]string) ([][
 		if err != nil {
 			return res, err
 		}
-		if len(page) == 2 {
+		if singlePage {
+			return [][]byte{page}, nil
+		}
+		if string(page) == "[]" {
 			break
 		}
 		res = append(res, page)
