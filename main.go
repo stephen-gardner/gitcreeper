@@ -14,19 +14,19 @@ import (
 )
 
 type Config struct {
-	RepoDomain         string
-	RepoAddress        string
-	RepoPort           int
-	RepoUser           string
-	RepoPrivateKeyPath string
-	RepoPath           string
-	EmailServerAddress string
-	EmailFromAddress   string
-	StartDate          string
-	DaysUntilStagnant  int
-	CampusID           int
-	CursusIDs          []int
-	ProjectWhitelist   []int
+	CampusDomain         string
+	CampusID             int
+	CursusIDs            []int
+	ProjectStartingRange string
+	DaysUntilStagnant    int
+	RepoAddress          string
+	RepoPort             int
+	RepoUser             string
+	RepoPrivateKeyPath   string
+	RepoPath             string
+	EmailServerAddress   string
+	EmailFromAddress     string
+	ProjectWhitelist     []int
 }
 
 const intraTimeFormat = "2006-01-02T15:04:05.000Z"
@@ -47,7 +47,7 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 				"filter[primary_campus]": strconv.Itoa(config.CampusID),
 				"filter[active_cursus]":  strconv.Itoa(cursusID),
 				"filter[closed]":         "false",
-				"range[created_at]":      config.StartDate + "," + expirationDate.Format(intraTimeFormat),
+				"range[created_at]":      config.ProjectStartingRange + "," + expirationDate.Format(intraTimeFormat),
 				"page[size]":             "100",
 			},
 		)
@@ -57,7 +57,7 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 		// Check if team is on the whitelist and that it has a local repository
 		for _, team := range teams {
 			_, whitelisted := projectWhitelist[team.ProjectID]
-			if !whitelisted || !strings.Contains(team.RepoURL, config.RepoDomain) {
+			if !whitelisted || !strings.Contains(team.RepoURL, config.CampusDomain) {
 				continue
 			}
 			eligibleTeams[team.ID] = team
@@ -88,11 +88,9 @@ func processTeams(teams intra.Teams, expirationDate time.Time) {
 		}
 	}
 	fmt.Printf(
-		"\nOK: %d (%.2f%%)\tSTAGNANT: %d (%.2f%%)\tTOTAL: %d\n",
-		len(teams)-count,
-		100*(float64(len(teams)-count)/float64(len(teams))),
-		count,
-		100*(float64(count)/float64(len(teams))),
+		"\nOK: %d (%.2f%%) STAGNANT: %d (%.2f%%) TOTAL: %d\n",
+		len(teams)-count, 100*(float64(len(teams)-count)/float64(len(teams))),
+		count, 100*(float64(count)/float64(len(teams))),
 		len(teams),
 	)
 }

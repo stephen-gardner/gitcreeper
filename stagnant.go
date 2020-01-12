@@ -70,34 +70,20 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	}
 	stagnant := lastUpdate.Sub(expirationDate) <= 0
 	if stagnant {
-		fmt.Printf("STAGNANT ")
+		fmt.Printf("STAGNANT")
 	} else {
-		fmt.Printf("OK ")
+		fmt.Printf("OK")
 	}
-	fmt.Printf("[last update: %s]\n", lastUpdate)
+	fmt.Printf(" [last update: %s]\n", lastUpdate)
 	return stagnant, &lastUpdate, nil
 }
 
-func sendEmail(team *intra.Team, lastUpdate *time.Time) error {
-	to := make([]string, len(team.Users))
-	for i := range team.Users {
-		to[i] = team.Users[i].Login + "@student.42.us.org"
-	}
+func composeWarningEmail(body *bytes.Buffer, tmplVars map[string]string) error {
 	tmpl, err := template.ParseFiles("templates/warning_email.html")
 	if err != nil {
 		return err
 	}
-	var body bytes.Buffer
-	var lastUpdateStr string
-	var timeElapsed string
-	if lastUpdate != nil {
-		lastUpdateStr = lastUpdate.String()
-		timeElapsed = strconv.Itoa(int(time.Now().Sub(*lastUpdate).Hours()/24)) + " days ago"
-	} else {
-		lastUpdateStr = "NEVER"
-		timeElapsed = "never"
-	}
-	err = tmpl.Execute(&body, struct {
+	err = tmpl.Execute(body, struct {
 		From              string
 		To                string
 		ProjectName       string
@@ -106,16 +92,40 @@ func sendEmail(team *intra.Team, lastUpdate *time.Time) error {
 		DaysUntilStagnant int
 	}{
 		From:              config.EmailFromAddress,
-		To:                strings.Join(to, ","),
-		ProjectName:       getProjectName(team),
-		LastCommitDate:    lastUpdateStr,
-		TimeElapsed:       timeElapsed,
+		To:                tmplVars["to"],
+		ProjectName:       tmplVars["projectName"],
+		LastCommitDate:    tmplVars["lastUpdate"],
+		TimeElapsed:       tmplVars["timeElapsed"],
 		DaysUntilStagnant: config.DaysUntilStagnant,
 	})
 	if err != nil {
 		return err
 	}
 	bytes.ReplaceAll(body.Bytes(), []byte("\n"), []byte("\r\n"))
-	err = smtp.SendMail(config.EmailServerAddress, nil, config.EmailFromAddress, to, body.Bytes())
-	return err
+	return nil
+}
+
+func sendEmail(team *intra.Team, lastUpdate *time.Time, warn bool) error {
+	to := make([]string, len(team.Users))
+	for i := range team.Users {
+		to[i] = fmt.Sprintf("%s@student.%s", team.Users[i].Login, config.CampusDomain)
+	}
+	tmplVars := map[string]string{
+		"to":          strings.Join(to, ","),
+		"projectName": getProjectName(team),
+	}
+	if lastUpdate != nil {
+		tmplVars["lastUpdate"] = lastUpdate.String()
+		tmplVars["timeElapsed"] = strconv.Itoa(int(time.Now().Sub(*lastUpdate).Hours()/24)) + " days ago"
+	} else {
+		tmplVars["lastUpdate"] = "NEVER"
+		tmplVars["timeElapsed"] = "never"
+	}
+	body := &bytes.Buffer{}
+	if warn {
+		if err := composeWarningEmail(body, tmplVars); err != nil {
+			return err
+		}
+	}
+	return smtp.SendMail(config.EmailServerAddress, nil, config.EmailFromAddress, to, body.Bytes())
 }
