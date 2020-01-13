@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 
 	"golang.org/x/oauth2/clientcredentials"
 )
@@ -26,49 +27,50 @@ func getClient(ctx context.Context, scopes ...string) *http.Client {
 	return oauth.Client(ctx)
 }
 
-func getEndpoint(path string, options map[string]string) string {
+func getEndpoint(path string, params url.Values) string {
 	baseURL, err := url.Parse("https://api.intra.42.fr/v2/")
 	if err != nil {
 		log.Println(err)
 		return ""
 	}
 	baseURL.Path += path
-	params := url.Values{}
-	for key, value := range options {
-		params.Add(key, value)
-	}
 	baseURL.RawQuery = params.Encode()
 	return baseURL.String()
 }
 
-func runRequest(client *http.Client, method, endpoint string) ([]byte, error) {
-	req, err := http.NewRequest(method, endpoint, nil)
+func runRequest(client *http.Client, method, endpoint string, formData url.Values) (int, []byte, error) {
+	req, err := http.NewRequest(method, endpoint, strings.NewReader(formData.Encode()))
 	if err != nil {
-		return nil, err
+		return 0, nil, err
+	}
+	if formData != nil {
+		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		return nil, errors.New(fmt.Sprintf("Intra error [Response: %d]", resp.StatusCode))
+	data, err := ioutil.ReadAll(resp.Body)
+	if resp.StatusCode >= 400 {
+		err := errors.New(fmt.Sprintf("Intra error [Response: %d] %s", resp.StatusCode, string(data)))
+		return resp.StatusCode, nil, err
 	}
-	return ioutil.ReadAll(resp.Body)
+	return resp.StatusCode, data, err
 }
 
-func getAll(client *http.Client, endpoint string, params map[string]string) ([][]byte, error) {
+func getAll(client *http.Client, endpoint string, params url.Values) ([][]byte, error) {
 	var res [][]byte
 	pageNumber := 1
 	singlePage := false
-	if num, ok := params["page[number]"]; ok {
-		pageNumber, _ = strconv.Atoi(num)
+	if _, ok := params["page[number]"]; ok {
+		pageNumber, _ = strconv.Atoi(params.Get("page[number]"))
 		singlePage = true
 	}
 	for {
-		params["page[number]"] = strconv.Itoa(pageNumber)
+		params.Set("page[number]", strconv.Itoa(pageNumber))
 		endpoint := getEndpoint(endpoint, params)
-		page, err := runRequest(client, "GET", endpoint)
+		_, page, err := runRequest(client, http.MethodGet, endpoint, nil)
 		if err != nil {
 			return res, err
 		}

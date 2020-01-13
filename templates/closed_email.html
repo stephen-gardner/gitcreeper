@@ -1,0 +1,133 @@
+From: {{.From}}
+To: {{.To}}
+Subject: [PROJECT] Insufficient Progress on {{.ProjectName}}
+MIME-version: 1.0;
+Content-Type: text/html; charset="UTF-8"
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" content="text/html" http-equiv="content-type">
+    <title>
+        Insufficient Progress on {{.ProjectName}}
+    </title>
+</head>
+<div style="background-color: rgb(255, 255, 255); font-family: 'Noto Sans', sans-serif; color: rgb(51, 51, 51);">
+    <table style="margin: auto; background-color: rgb(255, 255, 255); border-spacing: 0; border-collapse: separate; width: 600px;">
+        <tbody>
+        <tr>
+            <td style="padding: 0;">
+                <table style="margin: auto; background-color: rgb(255, 255, 255); border-spacing: 0; border-collapse: separate; width: 600px;">
+                    <tbody>
+                    <tr>
+                        <td style="text-align: center; height: 100px; width: 380px; padding: 0;">
+                            <img alt="logo42" src="https://cdn.intra.42.fr/campus/logo/7/logo_fremont.png"
+                                 style="height: 100px; width: auto;"/>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <table style="margin: auto; background-color: rgb(255, 255, 255); border-spacing: 0; border-collapse: separate; width: 600px;">
+                    <tbody>
+                    <tr>
+                        <td style="font-family: 'Noto Sans', sans-serif; font-size: 28px; font-weight: normal; color: rgb(119, 119, 119); text-align: center; padding: 30px 0 10px; width: 560px;">
+                            Insufficient Progress on {{.ProjectName}}
+                        </td>
+                    </tr>
+                    <tr>
+                        <td style="font-family: 'Noto Sans', sans-serif; font-size: 18px; font-weight: normal; color: rgb(153, 153, 153); text-align: center; padding: 0 0 50px; width: 560px;">
+                            LAST COMMIT: {{.LastCommitDate}}
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <table style="margin: auto; background-color: rgb(255, 255, 255); border-spacing: 0; border-collapse: separate; width: 600px;">
+                    <tbody>
+                    <tr>
+                        <td style="border-top: 1px solid rgb(238, 238, 238); padding: 30px 0; width: 540px;">
+                            <table style="margin: auto; background-color: rgb(255, 255, 255); border-spacing: 0; border-collapse: separate; width: 540px;">
+                                <tbody>
+                                <tr>
+                                    <td style="text-align: justify; font-family: 'Noto Sans', sans-serif; font-size: 14px; color: rgb(51, 51, 51); padding: 18px; width: 500px;">
+                                        Your last commit to the project
+                                        <span style="font-style: italic;">
+                                            {{.ProjectName}}
+                                        </span>
+                                        was {{.TimeElapsed}}.
+                                        <br/><br/>
+                                        Failure to make a commit to the master branch at least once within the last
+                                        {{.DaysUntilStagnant}} days has resulted in your project being marked as
+                                        "finished." You have {{.DaysToCorrect}} days to complete your corrections
+                                        before your score is finalized.
+                                    </td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <table style="margin: auto; background-color: rgb(255, 255, 255); padding: 30px 0; border-spacing: 0; border-collapse: separate; width: 600px;">
+                    <tbody>
+                    <tr>
+                        <td style="border-top: 1px solid rgb(238, 238, 238); text-align: center; width: 540px; padding: 0;">
+                            <table style="margin: auto; background-color: rgb(255, 255, 255); border-spacing: 0; border-collapse: separate; width: 540px;">
+                                <tbody>
+                                <tr>
+                                    <td colspan="3"
+                                        style="text-align: center; color: rgb(187, 187, 187); font-family: 'Noto Sans', sans-serif; font-size: 12px; text-transform: uppercase; background-color: rgb(255, 255, 255); padding: 18px 0 18px;">
+                                        This email was sent by
+                                        <a href="https://www.42.us.org/"
+                                           style="text-decoration: none;"
+                                           target="_blank">
+                                                <span style="color: rgb(0, 186, 188);">
+                                                    42
+                                                </span>
+                                        </a>
+                                        <br/>
+                                        <span>6600 Dumbarton Circle</span>
+                                        <br/>
+                                        <span>94555 Fremont</span>
+                                        <br/><br/>
+                                        <a href="https://profile.intra.42.fr/mails"
+                                           style="text-decoration: none;"
+                                           target="_blank">
+                                                <span style="color: rgb(0, 186, 188);">
+                                                    Unsubscribe
+                                                </span>
+                                        </a>
+                                        from mails
+                                    </td>
+                                </tr>
+                                <tr style="text-align: center; background-color: rgb(255, 255, 255);">
+                                    <td></td>
+                                    <td style="width: 500px;">
+                                        <a href="https://www.facebook.com/42SiliconValley"
+                                           style="color: rgb(255, 255, 255); height: 24px; width: auto; text-decoration: none !important;"
+                                           target="_blank">
+                                            <img alt="follow us on facebook"
+                                                 src="https://cdn.intra.42.fr/mailer/facebook_small.png"
+                                                 style="color: rgb(255, 255, 255); height: 24px; width: auto; padding: 5px; text-decoration: none !important;"/>
+                                        </a>
+                                        <a href="https://twitter.com/42SiliconValley"
+                                           style="color: rgb(255, 255, 255); height: 24px; width: auto; text-decoration: none !important;"
+                                           target="_blank">
+                                            <img alt="follow us on twitter"
+                                                 src="https://cdn.intra.42.fr/mailer/twitter_small.png"
+                                                 style="color: rgb(255, 255, 255); height: 24px; width: auto; padding: 5px; text-decoration: none !important;"/>
+                                        </a>
+                                    </td>
+                                    <td></td>
+                                </tr>
+                                </tbody>
+                            </table>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </td>
+        </tr>
+        </tbody>
+    </table>
+</div>
+</html>

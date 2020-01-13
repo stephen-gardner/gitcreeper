@@ -3,6 +3,7 @@ package intra
 import (
 	"context"
 	"encoding/json"
+	"net/url"
 	"strconv"
 )
 
@@ -17,38 +18,38 @@ type (
 	Projects []Project
 )
 
-func GetProject(ctx context.Context, bypassCache bool, ID int) (*Project, error) {
+func GetProject(ctx context.Context, bypassCache bool, ID int, project *Project) error {
 	IDStr := strconv.Itoa(ID)
 	endpoint := getEndpoint("projects/"+IDStr, nil)
-	if p, present := intraCache[endpoint]; !bypassCache && present {
-		proj := p.(Project)
-		return &proj, nil
+	if proj, present := intraCache[endpoint]; !bypassCache && present {
+		*project = proj.(Project)
+		return nil
 	}
-	projects, err := GetAllProjects(ctx, map[string]string{
-		"filter[id]":   IDStr,
-		"page[number]": "1",
-	})
+	params := url.Values{}
+	params.Set("filter[id]", IDStr)
+	params.Set("page[number]", "1")
+	var projects Projects
+	err := GetAllProjects(ctx, params, &projects)
 	if err == nil && len(projects) > 0 {
-		return &projects[0], nil
+		*project = projects[0]
 	}
-	return nil, err
+	return err
 }
 
-func GetAllProjects(ctx context.Context, params map[string]string) (Projects, error) {
+func GetAllProjects(ctx context.Context, params url.Values, projects *Projects) error {
 	data, err := getAll(getClient(ctx, "public"), "projects", params)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	var projects Projects
 	for _, dataPage := range data {
 		var page Projects
 		if err := json.Unmarshal(dataPage, &page); err != nil {
-			return nil, err
+			return err
 		}
 		for _, proj := range page {
 			intraCache[getEndpoint("projects/"+strconv.Itoa(proj.ID), nil)] = proj
 		}
-		projects = append(projects, page...)
+		*projects = append(*projects, page...)
 	}
-	return projects, nil
+	return nil
 }

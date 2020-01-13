@@ -7,6 +7,7 @@
   ],
   "ProjectStartingRange": "2016-09-21T08:42:00.000Z",
   "DaysUntilStagnant": 7,
+  "DaysToCorrect": 7,
   "RepoAddress": "vgs-fd.42.us.org",
   "RepoPort": 4222,
   "RepoUser": "gitcreeper",

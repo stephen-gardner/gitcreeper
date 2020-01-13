@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log"
 	"net/smtp"
+	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -24,8 +25,9 @@ func getIntraIDs(team *intra.Team) []string {
 }
 
 func getProjectName(team *intra.Team) string {
-	project, err := intra.GetProject(context.Background(), false, team.ProjectID)
-	if err != nil || project == nil {
+	project := intra.Project{}
+	err := intra.GetProject(context.Background(), false, team.ProjectID, &project)
+	if err != nil {
 		log.Printf("Error retrieving project info for ID %d: %s\n", team.ProjectID, err)
 		return "Unknown Project"
 	} else {
@@ -68,7 +70,7 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 		fmt.Printf("ERROR\n")
 		return false, nil, err
 	}
-	stagnant := lastUpdate.Sub(expirationDate) <= 0
+	stagnant := lastUpdate.UTC().Sub(expirationDate) <= 0
 	if stagnant {
 		fmt.Printf("STAGNANT")
 	} else {
@@ -78,8 +80,8 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	return stagnant, &lastUpdate, nil
 }
 
-func composeWarningEmail(body *bytes.Buffer, tmplVars map[string]string) error {
-	tmpl, err := template.ParseFiles("templates/warning_email.html")
+func composeEmail(tmplPath string, body *bytes.Buffer, vars map[string]string) error {
+	tmpl, err := template.ParseFiles(tmplPath)
 	if err != nil {
 		return err
 	}
@@ -90,13 +92,15 @@ func composeWarningEmail(body *bytes.Buffer, tmplVars map[string]string) error {
 		LastCommitDate    string
 		TimeElapsed       string
 		DaysUntilStagnant int
+		DaysToCorrect     int
 	}{
 		From:              config.EmailFromAddress,
-		To:                tmplVars["to"],
-		ProjectName:       tmplVars["projectName"],
-		LastCommitDate:    tmplVars["lastUpdate"],
-		TimeElapsed:       tmplVars["timeElapsed"],
+		To:                vars["to"],
+		ProjectName:       vars["projectName"],
+		LastCommitDate:    vars["lastUpdate"],
+		TimeElapsed:       vars["timeElapsed"],
 		DaysUntilStagnant: config.DaysUntilStagnant,
+		DaysToCorrect:     config.DaysToCorrect,
 	})
 	if err != nil {
 		return err
@@ -110,22 +114,41 @@ func sendEmail(team *intra.Team, lastUpdate *time.Time, warn bool) error {
 	for i := range team.Users {
 		to[i] = fmt.Sprintf("%s@student.%s", team.Users[i].Login, config.CampusDomain)
 	}
-	tmplVars := map[string]string{
+	vars := map[string]string{
 		"to":          strings.Join(to, ","),
 		"projectName": getProjectName(team),
 	}
 	if lastUpdate != nil {
-		tmplVars["lastUpdate"] = lastUpdate.String()
-		tmplVars["timeElapsed"] = strconv.Itoa(int(time.Now().Sub(*lastUpdate).Hours()/24)) + " days ago"
+		vars["lastUpdate"] = lastUpdate.String()
+		vars["timeElapsed"] = strconv.Itoa(int(time.Now().Sub(*lastUpdate).Hours()/24)) + " days ago"
 	} else {
-		tmplVars["lastUpdate"] = "NEVER"
-		tmplVars["timeElapsed"] = "never"
+		vars["lastUpdate"] = "NEVER"
+		vars["timeElapsed"] = "never"
 	}
 	body := &bytes.Buffer{}
+	var tmplPath string
 	if warn {
-		if err := composeWarningEmail(body, tmplVars); err != nil {
-			return err
-		}
+		tmplPath = "templates/warning_email.html"
+	} else {
+		tmplPath = "templates/closed_email.html"
+	}
+	if err := composeEmail(tmplPath, body, vars); err != nil {
+		return err
 	}
 	return smtp.SendMail(config.EmailServerAddress, nil, config.EmailFromAddress, to, body.Bytes())
+}
+
+func closeTeam(team *intra.Team) error {
+	patched := *team
+	patched.ClosedAt = time.Now().UTC()
+	patched.TerminatingAt = patched.ClosedAt.Add(time.Duration(config.DaysToCorrect) * 24 * time.Hour)
+	params := url.Values{}
+	params.Set("team[closed_at]", patched.ClosedAt.Format(intraTimeFormat))
+	params.Set("team[terminating_at]", patched.TerminatingAt.Format(intraTimeFormat))
+	_, _, err := patched.PatchTeam(context.Background(), params, true)
+	if err != nil {
+		return err
+	}
+	*team = patched
+	return nil
 }
