@@ -18,6 +18,7 @@ type Config struct {
 	CampusDomain         string
 	CampusID             int
 	CursusIDs            []int
+	StartClosingAt       string
 	ProjectStartingRange string
 	DaysUntilStagnant    int
 	DaysToCorrect        int
@@ -73,32 +74,48 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 	return
 }
 
-func processTeams(teams intra.Teams, expirationDate time.Time) {
+func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaunch bool) {
 	fmt.Printf("Processing...\n\n")
 	nStagnant := 0
+	nWarned := 0
 	for _, team := range teams {
 		stagnant, lastUpdate, err := checkStagnant(&team, expirationDate)
 		if stagnant {
-			if err = closeTeam(&team); err == nil {
-				err = sendEmail(&team, lastUpdate, false)
+			if prelaunch {
+				err = sendEmail(&team, lastUpdate, prelaunchEmail)
+			} else {
+				if err = closeTeam(&team, midnight); err == nil {
+					err = sendEmail(&team, lastUpdate, closedEmail)
+				}
 			}
 			nStagnant++
+		} else if !prelaunch && lastUpdate != nil {
+			adjusted := lastUpdate.UTC().Add(-(24 * time.Hour))
+			if adjusted.Sub(expirationDate) <= 0 {
+				fmt.Printf("*")
+				err = sendEmail(&team, lastUpdate, warningEmail)
+				nWarned++
+			}
 		}
+		fmt.Printf("\n")
 		if err != nil {
 			log.Println(err)
 			continue
 		}
 	}
 	fmt.Printf(
-		"\nOK: %d (%.2f%%) STAGNANT: %d (%.2f%%) TOTAL: %d\n",
+		"\nOK: %d (%.2f%%) WARNED: %d (%.2f%%) STAGNANT: %d (%.2f%%) TOTAL: %d\n",
 		len(teams)-nStagnant, 100*(float64(len(teams)-nStagnant)/float64(len(teams))),
+		nWarned, 100*(float64(nWarned)/float64(len(teams))),
 		nStagnant, 100*(float64(nStagnant)/float64(len(teams))),
 		len(teams),
 	)
 }
 
+// TODO: Slack report
+
 func main() {
-	log.Println("Gitcreeper started...")
+	log.Println("GitCreeper started...")
 	data, err := ioutil.ReadFile("config.json")
 	if err == nil {
 		err = json.Unmarshal(data, &config)
@@ -109,8 +126,14 @@ func main() {
 	for _, ID := range config.ProjectWhitelist {
 		projectWhitelist[ID] = true
 	}
-	expirationDate := time.Now().UTC().Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
+	now := time.Now()
+	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UTC()
+	expirationDate := midnight.Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
+	startClosingAt, err := time.Parse(intraTimeFormat, config.StartClosingAt)
+	if err != nil {
+		log.Fatal(err)
+	}
 	teams := getEligibleTeams(expirationDate)
-	processTeams(teams, expirationDate)
+	processTeams(teams, midnight, expirationDate, midnight.Sub(startClosingAt) < 0)
 	log.Println("Creeping complete!")
 }

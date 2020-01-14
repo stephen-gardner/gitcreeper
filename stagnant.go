@@ -16,6 +16,12 @@ import (
 	"gitcreeper/intra"
 )
 
+const (
+	prelaunchEmail = "prelaunch"
+	warningEmail   = "warning"
+	closedEmail    = "closed"
+)
+
 func getIntraIDs(team *intra.Team) []string {
 	intraIDs := make([]string, len(team.Users))
 	for i := range team.Users {
@@ -61,7 +67,7 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	}
 	// Empty repository--no commits
 	if len(out) == 0 {
-		fmt.Printf("STAGNANT [last update: never]\n")
+		fmt.Printf("STAGNANT [last update: never]")
 		return true, nil, nil
 	}
 	dateStr := strings.Trim(strings.SplitN(string(out), ":", 2)[1], " \n")
@@ -76,7 +82,7 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	} else {
 		fmt.Printf("OK")
 	}
-	fmt.Printf(" [last update: %s]\n", lastUpdate)
+	fmt.Printf(" [last update: %s]", lastUpdate)
 	return stagnant, &lastUpdate, nil
 }
 
@@ -109,7 +115,7 @@ func composeEmail(tmplPath string, body *bytes.Buffer, vars map[string]string) e
 	return nil
 }
 
-func sendEmail(team *intra.Team, lastUpdate *time.Time, warn bool) error {
+func sendEmail(team *intra.Team, lastUpdate *time.Time, emailType string) error {
 	to := make([]string, len(team.Users))
 	for i := range team.Users {
 		to[i] = fmt.Sprintf("%s@student.%s", team.Users[i].Login, config.CampusDomain)
@@ -126,21 +132,16 @@ func sendEmail(team *intra.Team, lastUpdate *time.Time, warn bool) error {
 		vars["timeElapsed"] = "never"
 	}
 	body := &bytes.Buffer{}
-	var tmplPath string
-	if warn {
-		tmplPath = "templates/warning_email.html"
-	} else {
-		tmplPath = "templates/closed_email.html"
-	}
+	tmplPath := fmt.Sprintf("templates/%s_email.html", emailType)
 	if err := composeEmail(tmplPath, body, vars); err != nil {
 		return err
 	}
 	return smtp.SendMail(config.EmailServerAddress, nil, config.EmailFromAddress, to, body.Bytes())
 }
 
-func closeTeam(team *intra.Team) error {
+func closeTeam(team *intra.Team, midnight time.Time) error {
 	patched := *team
-	patched.ClosedAt = time.Now().UTC()
+	patched.ClosedAt = midnight
 	patched.TerminatingAt = patched.ClosedAt.Add(time.Duration(config.DaysToCorrect) * 24 * time.Hour)
 	params := url.Values{}
 	params.Set("team[closed_at]", patched.ClosedAt.Format(intraTimeFormat))
