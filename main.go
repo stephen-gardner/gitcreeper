@@ -74,6 +74,21 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 	return
 }
 
+func closeTeam(team *intra.Team, midnight time.Time) error {
+	patched := *team
+	patched.ClosedAt = midnight
+	patched.TerminatingAt = patched.ClosedAt.Add(time.Duration(config.DaysToCorrect) * 24 * time.Hour)
+	params := url.Values{}
+	params.Set("team[closed_at]", patched.ClosedAt.Format(intraTimeFormat))
+	params.Set("team[terminating_at]", patched.TerminatingAt.Format(intraTimeFormat))
+	_, _, err := patched.PatchTeam(context.Background(), params, true)
+	if err != nil {
+		return err
+	}
+	*team = patched
+	return nil
+}
+
 func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaunch bool) {
 	fmt.Printf("Processing...\n\n")
 	nStagnant := 0
@@ -90,6 +105,7 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 			}
 			nStagnant++
 		} else if !prelaunch && lastUpdate != nil {
+			// Check for teams that will stagnate within 24 hours
 			adjusted := lastUpdate.UTC().Add(-(24 * time.Hour))
 			if adjusted.Sub(expirationDate) <= 0 {
 				fmt.Printf("*")

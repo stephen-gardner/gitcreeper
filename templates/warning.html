@@ -1,0 +1,22 @@
+{{ define "content" }}
+    Your last commit to the project
+    <span style="font-style: italic;">
+        {{.ProjectName}}
+    </span>
+    was {{.TimeElapsed}}.
+    <br/><br/>
+    <span style="font-weight: bold;">
+        For now, this is a warning, but if your project does not receive an update within 24 hours, it will be marked
+        as "finished."
+    </span>
+    <br/><br/>
+    All projects must receive commits to the master branch at least once every
+    <span style="font-weight: bold;">
+        {{.DaysUntilStagnant}} days
+    </span>
+    to remain active. Projects closed in this fashion will have
+    <span style="font-weight: bold;">
+        {{.DaysToCorrect}} days
+    </span>
+    to be corrected before the score is finalized.
+{{ end }}

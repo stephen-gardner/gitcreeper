@@ -1,0 +1,19 @@
+{{ define "content" }}
+    Your last commit to the project
+    <span style="font-style: italic;">
+        {{.ProjectName}}
+    </span>
+    was {{.TimeElapsed}}.
+    <br/><br/>
+    For now, this is a warning, but starting on
+    <span style="font-weight: bold;">
+        January 13th, 2020
+    </span>
+    your project will be marked as "finished" if you fail to make commits to the master branch at least once every
+    <span style="font-weight: bold;">{{.DaysUntilStagnant}} days</span>.
+    Projects closed in this fashion will have
+    <span style="font-weight: bold;">
+        {{.DaysToCorrect}} days
+    </span>
+    to be corrected before the score is finalized.
+{{ end }}

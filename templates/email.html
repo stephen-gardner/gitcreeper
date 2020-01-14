@@ -1,6 +1,6 @@
 From: {{.From}}
 To: {{.To}}
-Subject: [PROJECT] {{.ProjectName}} Nearing Update Deadline
+Subject: [PROJECT] {{.Title}}
 MIME-version: 1.0;
 Content-Type: text/html; charset="UTF-8"
 
@@ -9,7 +9,7 @@ Content-Type: text/html; charset="UTF-8"
 <head>
     <meta charset="UTF-8" content="text/html" http-equiv="content-type">
     <title>
-        {{.ProjectName}} Nearing Update Deadline
+        {{.Title}}
     </title>
 </head>
 <div style="background-color: rgb(255, 255, 255); font-family: 'Noto Sans', sans-serif; color: rgb(51, 51, 51);">
@@ -31,7 +31,7 @@ Content-Type: text/html; charset="UTF-8"
                     <tbody>
                     <tr>
                         <td style="font-family: 'Noto Sans', sans-serif; font-size: 28px; font-weight: normal; color: rgb(119, 119, 119); text-align: center; padding: 30px 0 10px; width: 560px;">
-                            {{.ProjectName}} Nearing Update Deadline
+                            {{.Title}}
                         </td>
                     </tr>
                     <tr>
@@ -49,18 +49,7 @@ Content-Type: text/html; charset="UTF-8"
                                 <tbody>
                                 <tr>
                                     <td style="text-align: justify; font-family: 'Noto Sans', sans-serif; font-size: 14px; color: rgb(51, 51, 51); padding: 18px; width: 500px;">
-                                        Your last commit to the project
-                                        <span style="font-style: italic;">
-                                            {{.ProjectName}}
-                                        </span>
-                                        was {{.TimeElapsed}}.
-                                        <br/><br/>
-                                        For now, this is a warning, but if your project does not receive an update
-                                        within 24 hours, it will be marked as "finished."
-                                        <br/><br/>
-                                        All projects must receive commits to the master branch at least once every
-                                        {{.DaysUntilStagnant}} days to remain active. Projects closed in this fashion
-                                        will have {{.DaysToCorrect}} days to be corrected before the score is finalized.
+                                        {{ template "content" . }}
                                     </td>
                                 </tr>
                                 </tbody>

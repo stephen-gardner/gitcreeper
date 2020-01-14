@@ -1,25 +1,14 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"html/template"
 	"log"
-	"net/smtp"
-	"net/url"
 	"os/exec"
-	"strconv"
 	"strings"
 	"time"
 
 	"gitcreeper/intra"
-)
-
-const (
-	prelaunchEmail = "prelaunch"
-	warningEmail   = "warning"
-	closedEmail    = "closed"
 )
 
 func getIntraIDs(team *intra.Team) []string {
@@ -84,72 +73,4 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	}
 	fmt.Printf(" [last update: %s]", lastUpdate)
 	return stagnant, &lastUpdate, nil
-}
-
-func composeEmail(tmplPath string, body *bytes.Buffer, vars map[string]string) error {
-	tmpl, err := template.ParseFiles(tmplPath)
-	if err != nil {
-		return err
-	}
-	err = tmpl.Execute(body, struct {
-		From              string
-		To                string
-		ProjectName       string
-		LastCommitDate    string
-		TimeElapsed       string
-		DaysUntilStagnant int
-		DaysToCorrect     int
-	}{
-		From:              config.EmailFromAddress,
-		To:                vars["to"],
-		ProjectName:       vars["projectName"],
-		LastCommitDate:    vars["lastUpdate"],
-		TimeElapsed:       vars["timeElapsed"],
-		DaysUntilStagnant: config.DaysUntilStagnant,
-		DaysToCorrect:     config.DaysToCorrect,
-	})
-	if err != nil {
-		return err
-	}
-	bytes.ReplaceAll(body.Bytes(), []byte("\n"), []byte("\r\n"))
-	return nil
-}
-
-func sendEmail(team *intra.Team, lastUpdate *time.Time, emailType string) error {
-	to := make([]string, len(team.Users))
-	for i := range team.Users {
-		to[i] = fmt.Sprintf("%s@student.%s", team.Users[i].Login, config.CampusDomain)
-	}
-	vars := map[string]string{
-		"to":          strings.Join(to, ","),
-		"projectName": getProjectName(team),
-	}
-	if lastUpdate != nil {
-		vars["lastUpdate"] = lastUpdate.String()
-		vars["timeElapsed"] = strconv.Itoa(int(time.Now().Sub(*lastUpdate).Hours()/24)) + " days ago"
-	} else {
-		vars["lastUpdate"] = "NEVER"
-		vars["timeElapsed"] = "never"
-	}
-	body := &bytes.Buffer{}
-	tmplPath := fmt.Sprintf("templates/%s_email.html", emailType)
-	if err := composeEmail(tmplPath, body, vars); err != nil {
-		return err
-	}
-	return smtp.SendMail(config.EmailServerAddress, nil, config.EmailFromAddress, to, body.Bytes())
-}
-
-func closeTeam(team *intra.Team, midnight time.Time) error {
-	patched := *team
-	patched.ClosedAt = midnight
-	patched.TerminatingAt = patched.ClosedAt.Add(time.Duration(config.DaysToCorrect) * 24 * time.Hour)
-	params := url.Values{}
-	params.Set("team[closed_at]", patched.ClosedAt.Format(intraTimeFormat))
-	params.Set("team[terminating_at]", patched.TerminatingAt.Format(intraTimeFormat))
-	_, _, err := patched.PatchTeam(context.Background(), params, true)
-	if err != nil {
-		return err
-	}
-	*team = patched
-	return nil
 }

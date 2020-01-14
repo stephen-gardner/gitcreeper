@@ -1,0 +1,17 @@
+{{ define "content" }}
+    Your last commit to the project
+    <span style="font-style: italic;">
+        {{.ProjectName}}
+    </span>
+    was {{.TimeElapsed}}.
+    <br/><br/>
+    Failure to make a commit to the master branch at least once within the last
+    <span style="font-weight: bold;">
+        {{.DaysUntilStagnant}} days
+    </span>
+    has resulted in your project being marked as "finished."
+    <br/><br/>
+    <span style="font-weight: bold;">
+        You have {{.DaysToCorrect}} days to correct this project before the score is finalized.
+    </span>
+{{ end }}
