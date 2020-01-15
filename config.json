@@ -12,7 +12,7 @@
   "RepoAddress": "vgs-fd.42.us.org",
   "RepoPort": 4222,
   "RepoUser": "gitcreeper",
-  "RepoPrivateKeyPath": "/Users/stephen/.ssh/gitcreeper_id_rsa",
+  "RepoPrivateKeyPath": "/root/gitcreeper/.ssh/gitcreeper_id_rsa",
   "RepoPath": "/space/repos",
   "EmailServerAddress": "smtp.42.us.org:25",
   "EmailFromAddress": "gitcreeper-no-reply@42.us.org",
