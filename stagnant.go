@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log"
-	"os/exec"
 	"strings"
 	"time"
 
@@ -41,15 +40,11 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	path := strings.Split(strings.Split(team.RepoURL, ":")[1], "/")
 	path[len(path)-1] = team.RepoUUID
 	cmd := fmt.Sprintf(
-		"ssh %s@%s -p %d -i %s \"git -C %s/%s log 2>/dev/null | grep 'Date:' | head -n1\"",
-		config.RepoUser,
-		config.RepoAddress,
-		config.RepoPort,
-		config.RepoPrivateKeyPath,
+		"git -C %s/%s log | grep 'Date:' | head -n1",
 		config.RepoPath,
 		strings.Join(path, "/"),
 	)
-	out, err := exec.Command("/bin/sh", "-c", cmd).Output()
+	out, err := sshRunCommand(cmd)
 	if err != nil {
 		output("ERROR")
 		return false, nil, err

@@ -132,18 +132,29 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 	)
 }
 
-func main() {
-	data, err := ioutil.ReadFile("config.json")
-	if err == nil {
-		err = json.Unmarshal(data, &config)
-	}
+func loadConfig(path string) error {
+	data, err := ioutil.ReadFile(path)
 	if err != nil {
-		log.Fatal(err)
+		return err
+	}
+	if err := json.Unmarshal(data, &config); err != nil {
+		return err
 	}
 	for _, ID := range config.ProjectWhitelist {
 		projectWhitelist[ID] = true
 	}
 	output("%s GitCreeper started...\n", time.Now().Format(logTimeFormat))
+	return nil
+}
+
+func main() {
+	if err := loadConfig("config.json"); err != nil {
+		log.Fatal(err)
+	}
+	if err := sshConnect(); err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UTC()
 	expirationDate := midnight.Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
