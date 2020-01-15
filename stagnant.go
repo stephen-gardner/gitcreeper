@@ -20,8 +20,8 @@ func getIntraIDs(team *intra.Team) []string {
 }
 
 func getProjectName(team *intra.Team) string {
-	project := intra.Project{}
-	err := intra.GetProject(context.Background(), false, team.ProjectID, &project)
+	project := &intra.Project{}
+	err := project.GetProject(context.Background(), false, team.ProjectID)
 	if err != nil {
 		log.Printf("Error retrieving project info for ID %d: %s\n", team.ProjectID, err)
 		return "Unknown Project"

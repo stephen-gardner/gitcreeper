@@ -18,7 +18,7 @@ type (
 	Projects []Project
 )
 
-func GetProject(ctx context.Context, bypassCache bool, ID int, project *Project) error {
+func (project *Project) GetProject(ctx context.Context, bypassCache bool, ID int) error {
 	IDStr := strconv.Itoa(ID)
 	endpoint := getEndpoint("projects/"+IDStr, nil)
 	if proj, present := intraCache[endpoint]; !bypassCache && present {
@@ -28,15 +28,15 @@ func GetProject(ctx context.Context, bypassCache bool, ID int, project *Project)
 	params := url.Values{}
 	params.Set("filter[id]", IDStr)
 	params.Set("page[number]", "1")
-	var projects Projects
-	err := GetAllProjects(ctx, params, &projects)
-	if err == nil && len(projects) > 0 {
-		*project = projects[0]
+	projects := &Projects{}
+	err := projects.GetAllProjects(ctx, params)
+	if err == nil && len(*projects) > 0 {
+		*project = (*projects)[0]
 	}
 	return err
 }
 
-func GetAllProjects(ctx context.Context, params url.Values, projects *Projects) error {
+func (projects *Projects) GetAllProjects(ctx context.Context, params url.Values) error {
 	data, err := getAll(getClient(ctx, "public"), "projects", params)
 	if err != nil {
 		return err

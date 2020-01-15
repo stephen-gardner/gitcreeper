@@ -54,13 +54,13 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 		params.Set("filter[closed]", "false")
 		params.Set("range[created_at]", config.ProjectStartingRange+","+expirationDate.Format(intraTimeFormat))
 		params.Set("page[size]", "100")
-		var teams intra.Teams
-		if err := intra.GetAllTeams(context.Background(), params, &teams); err != nil {
+		teams := &intra.Teams{}
+		if err := teams.GetAllTeams(context.Background(), params); err != nil {
 			log.Println(err)
 		}
 		// Check if team is on the whitelist and that it has a local repository
-		for i := range teams {
-			team := &teams[i]
+		for i := range *teams {
+			team := &(*teams)[i]
 			_, whitelisted := projectWhitelist[team.ProjectID]
 			if !whitelisted || !strings.Contains(team.RepoURL, config.CampusDomain) {
 				continue

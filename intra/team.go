@@ -51,7 +51,7 @@ func (team *Team) PatchTeam(ctx context.Context, params url.Values, updateCache 
 	return status, respData, err
 }
 
-func GetTeam(ctx context.Context, bypassCache bool, ID int, team *Team) error {
+func (team *Team) GetTeam(ctx context.Context, bypassCache bool, ID int) error {
 	IDStr := strconv.Itoa(ID)
 	endpoint := getEndpoint("teams/"+IDStr, nil)
 	if t, present := intraCache[endpoint]; !bypassCache && present {
@@ -61,15 +61,15 @@ func GetTeam(ctx context.Context, bypassCache bool, ID int, team *Team) error {
 	params := url.Values{}
 	params.Set("filter[id]", IDStr)
 	params.Set("page[number]", "1")
-	var teams Teams
-	err := GetAllTeams(ctx, params, &teams)
-	if err == nil && len(teams) > 0 {
-		*team = teams[0]
+	teams := &Teams{}
+	err := teams.GetAllTeams(ctx, params)
+	if err == nil && len(*teams) > 0 {
+		*team = (*teams)[0]
 	}
 	return err
 }
 
-func GetAllTeams(ctx context.Context, params url.Values, teams *Teams) error {
+func (teams *Teams) GetAllTeams(ctx context.Context, params url.Values) error {
 	data, err := getAll(getClient(ctx, "public"), "teams", params)
 	if err != nil {
 		return err
