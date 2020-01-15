@@ -32,7 +32,7 @@ func getProjectName(team *intra.Team) string {
 
 // Checks if most recent commit in master branch is older than expirationDate
 func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time, error) {
-	fmt.Printf(
+	output(
 		"Checking <%d> %s (%s)... ",
 		team.ID,
 		getProjectName(team),
@@ -51,26 +51,26 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	)
 	out, err := exec.Command("/bin/sh", "-c", cmd).Output()
 	if err != nil {
-		fmt.Printf("ERROR\n")
+		output("ERROR")
 		return false, nil, err
 	}
 	// Empty repository--no commits
 	if len(out) == 0 {
-		fmt.Printf("STAGNANT [last update: never]")
+		output("STAGNANT [last update: never]")
 		return true, nil, nil
 	}
 	dateStr := strings.Trim(strings.SplitN(string(out), ":", 2)[1], " \n")
 	lastUpdate, err := time.Parse(gitTimeFormat, dateStr)
 	if err != nil {
-		fmt.Printf("ERROR\n")
+		output("ERROR")
 		return false, nil, err
 	}
 	stagnant := lastUpdate.UTC().Sub(expirationDate) <= 0
 	if stagnant {
-		fmt.Printf("STAGNANT")
+		output("STAGNANT")
 	} else {
-		fmt.Printf("OK")
+		output("OK")
 	}
-	fmt.Printf(" [last update: %s]", lastUpdate)
+	output(" [last update: %s]", lastUpdate)
 	return stagnant, &lastUpdate, nil
 }

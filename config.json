@@ -16,6 +16,8 @@
   "RepoPath": "/space/repos",
   "EmailServerAddress": "smtp.42.us.org:25",
   "EmailFromAddress": "gitcreeper-no-reply@42.us.org",
+  "SlackLogging": true,
+  "SlackOutputChannel": "GGYQNCYG7",
   "ProjectWhitelist": [
     1,
     2,
