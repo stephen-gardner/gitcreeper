@@ -39,6 +39,7 @@ func composeEmail(emailType string, body *bytes.Buffer, vars map[string]string) 
 		ProjectName       string
 		LastCommitDate    string
 		TimeElapsed       string
+		LaunchDate        string
 		DaysUntilStagnant int
 		DaysToCorrect     int
 	}{
@@ -48,6 +49,7 @@ func composeEmail(emailType string, body *bytes.Buffer, vars map[string]string) 
 		ProjectName:       vars["projectName"],
 		LastCommitDate:    vars["lastUpdate"],
 		TimeElapsed:       vars["timeElapsed"],
+		LaunchDate:        config.StartClosingAt.Local().Format(time.RFC822),
 		DaysUntilStagnant: config.DaysUntilStagnant,
 		DaysToCorrect:     config.DaysToCorrect,
 	})

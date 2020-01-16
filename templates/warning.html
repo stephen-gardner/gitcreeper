@@ -1,4 +1,4 @@
-{{ define "content" }}
+{{define "content"}}
     Your last commit to the project
     <span style="font-style: italic;">
         {{.ProjectName}}
@@ -14,9 +14,9 @@
     <span style="font-weight: bold;">
         {{.DaysUntilStagnant}} days
     </span>
-    to remain active. Projects closed in this fashion will have
+    (and be pushed to Vogsphere) to remain active. Projects closed in this fashion will have
     <span style="font-weight: bold;">
         {{.DaysToCorrect}} days
     </span>
     to be corrected before the score is finalized.
-{{ end }}
+{{end}}

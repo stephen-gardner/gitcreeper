@@ -1,4 +1,4 @@
-{{ define "content" }}
+{{define "content"}}
     Your last commit to the project
     <span style="font-style: italic;">
         {{.ProjectName}}
@@ -9,9 +9,9 @@
     <span style="font-weight: bold;">
         {{.DaysUntilStagnant}} days
     </span>
-    has resulted in your project being marked as "finished."
+    (and push it to Vogsphere) has resulted in your project being marked as "finished."
     <br/><br/>
     <span style="font-weight: bold;">
         You have {{.DaysToCorrect}} days to correct this project before the score is finalized.
     </span>
-{{ end }}
+{{end}}

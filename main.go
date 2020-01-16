@@ -17,8 +17,8 @@ type Config struct {
 	CampusDomain         string
 	CampusID             int
 	CursusIDs            []int
-	StartClosingAt       string
-	ProjectStartingRange string
+	StartClosingAt       time.Time
+	ProjectStartingRange time.Time
 	DaysUntilStagnant    int
 	DaysToCorrect        int
 	RepoAddress          string
@@ -47,12 +47,13 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 	output("Getting eligible teams from 42 Intra... ")
 	// Some teams may belong to more than one cursus
 	eligibleTeams := make(map[int]*intra.Team)
+	createdRange := config.ProjectStartingRange.Format(intraTimeFormat) + "," + expirationDate.Format(intraTimeFormat)
 	for _, cursusID := range config.CursusIDs {
 		params := url.Values{}
 		params.Set("filter[primary_campus]", strconv.Itoa(config.CampusID))
 		params.Set("filter[active_cursus]", strconv.Itoa(cursusID))
 		params.Set("filter[closed]", "false")
-		params.Set("range[created_at]", config.ProjectStartingRange+","+expirationDate.Format(intraTimeFormat))
+		params.Set("range[created_at]", createdRange)
 		params.Set("page[size]", "100")
 		teams := &intra.Teams{}
 		if err := teams.GetAllTeams(context.Background(), params); err != nil {
@@ -108,13 +109,19 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 				}
 			}
 			nStagnant++
-		} else if !prelaunch && lastUpdate != nil {
-			// Check for teams that will stagnate within 24 hours
-			adjusted := lastUpdate.UTC().Add(-(24 * time.Hour))
-			if adjusted.Sub(expirationDate) <= 0 {
-				output("*")
-				err = sendEmail(&team, lastUpdate, warningEmail)
-				nWarned++
+		} else if lastUpdate != nil {
+			if !prelaunch {
+				// Check for teams that will stagnate within 24 hours
+				adjusted := lastUpdate.UTC().Add(-(24 * time.Hour))
+				if adjusted.Sub(expirationDate) <= 0 {
+					output("*")
+					err = sendEmail(&team, lastUpdate, warningEmail)
+					nWarned++
+
+				}
+			}
+			if lastUpdate.UTC().Sub(midnight) > 0 {
+				output(" CHEAT")
 			}
 		}
 		output("\n")
@@ -158,12 +165,8 @@ func main() {
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UTC()
 	expirationDate := midnight.Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
-	startClosingAt, err := time.Parse(intraTimeFormat, config.StartClosingAt)
-	if err != nil {
-		log.Fatal(err)
-	}
 	teams := getEligibleTeams(expirationDate)
-	processTeams(teams, midnight, expirationDate, midnight.Sub(startClosingAt) < 0)
+	processTeams(teams, midnight, expirationDate, midnight.Sub(config.StartClosingAt) < 0)
 	output("%s Creeping complete!\n", time.Now().Format(logTimeFormat))
 	if config.SlackLogging {
 		if err := postLogs(midnight); err != nil {
