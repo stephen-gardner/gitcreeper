@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"gitcreeper/intra"
+
+	"github.com/getsentry/sentry-go"
 )
 
 type Config struct {
@@ -58,7 +59,7 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 		params.Set("page[size]", "100")
 		teams := &intra.Teams{}
 		if err := teams.GetAllTeams(context.Background(), params); err != nil {
-			log.Println(err)
+			sentry.CaptureException(err)
 		}
 		// Check if team is on the whitelist and that it has a local repository
 		for _, team := range *teams {
@@ -126,7 +127,7 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 		}
 		output("\n")
 		if err != nil {
-			log.Println(err)
+			sentry.CaptureException(err)
 			continue
 		}
 	}
@@ -156,10 +157,14 @@ func loadConfig(path string) error {
 
 func main() {
 	if err := loadConfig("config.json"); err != nil {
-		log.Fatal(err)
+		sentry.CaptureException(err)
+		sentry.Flush(5 * time.Second)
+		return
 	}
 	if err := sshConnect(); err != nil {
-		log.Fatal(err)
+		sentry.CaptureException(err)
+		sentry.Flush(5 * time.Second)
+		return
 	}
 	defer conn.Close()
 	now := time.Now()
@@ -170,7 +175,8 @@ func main() {
 	output("%s Creeping complete!\n", time.Now().Format(logTimeFormat))
 	if config.SlackLogging {
 		if err := postLogs(midnight); err != nil {
-			log.Println(err)
+			sentry.CaptureException(err)
 		}
 	}
+	sentry.Flush(5 * time.Second)
 }
