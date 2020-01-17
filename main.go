@@ -46,34 +46,30 @@ var projectWhitelist = make(map[int]bool)
 func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 	output("Getting eligible teams from 42 Intra... ")
 	// Some teams may belong to more than one cursus
-	eligibleTeams := make(map[int]*intra.Team)
-	createdRange := config.ProjectStartingRange.Format(intraTimeFormat) + "," + expirationDate.Format(intraTimeFormat)
+	eligibleTeams := make(map[int]bool)
+	lockedRange := config.ProjectStartingRange.Format(intraTimeFormat) + "," + expirationDate.Format(intraTimeFormat)
 	for _, cursusID := range config.CursusIDs {
 		params := url.Values{}
 		params.Set("filter[primary_campus]", strconv.Itoa(config.CampusID))
 		params.Set("filter[active_cursus]", strconv.Itoa(cursusID))
 		params.Set("filter[closed]", "false")
-		params.Set("range[created_at]", createdRange)
+		params.Set("range[locked_at]", lockedRange)
+		params.Set("sort", "project_id")
 		params.Set("page[size]", "100")
 		teams := &intra.Teams{}
 		if err := teams.GetAllTeams(context.Background(), params); err != nil {
 			log.Println(err)
 		}
 		// Check if team is on the whitelist and that it has a local repository
-		for i := range *teams {
-			team := &(*teams)[i]
+		for _, team := range *teams {
+			_, present := eligibleTeams[team.ID]
 			_, whitelisted := projectWhitelist[team.ProjectID]
-			if !whitelisted || !strings.Contains(team.RepoURL, config.CampusDomain) {
+			if present || !whitelisted || !strings.Contains(team.RepoURL, config.CampusDomain) {
 				continue
 			}
-			eligibleTeams[team.ID] = team
+			res = append(res, team)
+			eligibleTeams[team.ID] = true
 		}
-	}
-	res = make(intra.Teams, len(eligibleTeams))
-	i := 0
-	for _, team := range eligibleTeams {
-		res[i] = *team
-		i++
 	}
 	output("%d teams retrieved.\n", len(res))
 	return
@@ -98,31 +94,35 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 	output("Processing...\n\n")
 	nStagnant := 0
 	nWarned := 0
-	for _, team := range teams {
-		stagnant, lastUpdate, err := checkStagnant(&team, expirationDate)
+	for i := range teams {
+		team := &teams[i]
+		stagnant, lastUpdate, err := checkStagnant(team, expirationDate)
 		if stagnant {
 			if prelaunch {
-				err = sendEmail(&team, lastUpdate, prelaunchEmail)
+				err = sendEmail(team, lastUpdate, prelaunchEmail)
 			} else {
-				if err = closeTeam(&team, midnight); err == nil {
-					err = sendEmail(&team, lastUpdate, closedEmail)
+				if err = closeTeam(team, midnight); err == nil {
+					err = sendEmail(team, lastUpdate, closedEmail)
 				}
 			}
 			nStagnant++
-		} else if lastUpdate != nil {
-			if !prelaunch {
-				// Check for teams that will stagnate within 24 hours
-				adjusted := lastUpdate.UTC().Add(-(24 * time.Hour))
-				if adjusted.Sub(expirationDate) <= 0 {
-					output("*")
-					err = sendEmail(&team, lastUpdate, warningEmail)
-					nWarned++
-
-				}
+		} else if !prelaunch {
+			// Check for teams that will stagnate within 24 hours
+			var adjusted time.Time
+			if lastUpdate == nil {
+				adjusted = team.LockedAt
+			} else {
+				adjusted = lastUpdate.UTC()
 			}
-			if lastUpdate.UTC().Sub(midnight) > 0 {
-				output(" CHEAT")
+			adjusted = adjusted.Add(-(24 * time.Hour))
+			if adjusted.Sub(expirationDate) <= 0 {
+				output("*")
+				err = sendEmail(team, lastUpdate, warningEmail)
+				nWarned++
 			}
+		}
+		if lastUpdate != nil && lastUpdate.UTC().Sub(midnight) > 0 {
+			output(" CHEAT")
 		}
 		output("\n")
 		if err != nil {
