@@ -70,8 +70,8 @@ func sendEmail(team *intra.Team, lastUpdate *time.Time, emailType string) error 
 		"projectName": getProjectName(team),
 	}
 	if lastUpdate != nil {
-		vars["lastUpdate"] = lastUpdate.String()
-		vars["timeElapsed"] = strconv.Itoa(int(time.Now().Sub(*lastUpdate).Hours()/24)) + " days ago"
+		vars["lastUpdate"] = lastUpdate.Local().String()
+		vars["timeElapsed"] = strconv.Itoa(int(time.Now().UTC().Sub(*lastUpdate).Hours()/24)) + " days ago"
 	} else {
 		vars["lastUpdate"] = "NEVER"
 		vars["timeElapsed"] = "never"

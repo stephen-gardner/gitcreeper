@@ -19,6 +19,31 @@ func getIntraIDs(team *intra.Team) []string {
 	return intraIDs
 }
 
+func getLastUpdate(team *intra.Team) (*time.Time, error) {
+	path := strings.Split(strings.Split(team.RepoURL, ":")[1], "/")
+	path[len(path)-1] = team.RepoUUID
+	cmd := fmt.Sprintf(
+		"git -C %s/%s log | grep 'Date:' | head -n1",
+		config.RepoPath,
+		strings.Join(path, "/"),
+	)
+	out, err := sshRunCommand(cmd)
+	if err != nil {
+		return nil, err
+	}
+	// Repository is empty
+	if len(out) == 0 {
+		return nil, nil
+	}
+	dateStr := strings.Trim(strings.SplitN(string(out), ":", 2)[1], " \n")
+	parsed, err := time.Parse(gitTimeFormat, dateStr)
+	if err != nil {
+		return nil, err
+	}
+	lastUpdate := parsed.UTC()
+	return &lastUpdate, nil
+}
+
 func getProjectName(team *intra.Team) string {
 	project := &intra.Project{}
 	err := project.GetProject(context.Background(), false, team.ProjectID)
@@ -38,35 +63,24 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 		getProjectName(team),
 		strings.Join(getIntraIDs(team), ", "),
 	)
-	path := strings.Split(strings.Split(team.RepoURL, ":")[1], "/")
-	path[len(path)-1] = team.RepoUUID
-	cmd := fmt.Sprintf(
-		"git -C %s/%s log | grep 'Date:' | head -n1",
-		config.RepoPath,
-		strings.Join(path, "/"),
-	)
-	out, err := sshRunCommand(cmd)
+	lastUpdate, err := getLastUpdate(team)
 	if err != nil {
 		output("ERROR")
 		return false, nil, err
 	}
-	// Empty repository--no commits
-	if len(out) == 0 {
-		output("STAGNANT [last update: never]")
-		return true, nil, nil
-	}
-	dateStr := strings.Trim(strings.SplitN(string(out), ":", 2)[1], " \n")
-	lastUpdate, err := time.Parse(gitTimeFormat, dateStr)
-	if err != nil {
-		output("ERROR")
-		return false, nil, err
-	}
-	stagnant := lastUpdate.UTC().Sub(expirationDate) <= 0
-	if stagnant {
-		output("STAGNANT")
+	var stagnant bool
+	var lastUpdateStr string
+	if lastUpdate == nil {
+		stagnant = team.LockedAt.Sub(expirationDate) <= 0
+		lastUpdateStr = "never"
 	} else {
-		output("OK")
+		stagnant = lastUpdate.Sub(expirationDate) <= 0
+		lastUpdateStr = lastUpdate.Local().String()
 	}
-	output(" [last update: %s]", lastUpdate)
-	return stagnant, &lastUpdate, nil
+	status := "OK"
+	if stagnant {
+		status = "STAGNANT"
+	}
+	output("%s [last update: %s]", status, lastUpdateStr)
+	return stagnant, lastUpdate, nil
 }

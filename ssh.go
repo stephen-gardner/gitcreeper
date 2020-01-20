@@ -7,7 +7,7 @@ import (
 	"golang.org/x/crypto/ssh"
 )
 
-var conn *ssh.Client
+var sshConn *ssh.Client
 
 func sshConnect() error {
 	key, err := ioutil.ReadFile(config.RepoPrivateKeyPath)
@@ -24,12 +24,12 @@ func sshConnect() error {
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
 	}
 	address := fmt.Sprintf("%s:%d", config.RepoAddress, config.RepoPort)
-	conn, err = ssh.Dial("tcp", address, sshConfig)
+	sshConn, err = ssh.Dial("tcp", address, sshConfig)
 	return err
 }
 
 func sshRunCommand(cmd string) ([]byte, error) {
-	session, err := conn.NewSession()
+	session, err := sshConn.NewSession()
 	if err != nil {
 		return nil, err
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/url"
 	"strconv"
@@ -48,7 +49,12 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 	output("Getting eligible teams from 42 Intra... ")
 	// Some teams may belong to more than one cursus
 	eligibleTeams := make(map[int]bool)
-	lockedRange := config.ProjectStartingRange.Format(intraTimeFormat) + "," + expirationDate.Format(intraTimeFormat)
+	// Need to get teams one day younger than the expirationDate to send warnings to those with empty repositories
+	lockedRange := fmt.Sprintf(
+		"%s,%s",
+		config.ProjectStartingRange.Format(intraTimeFormat),
+		expirationDate.Add(24*time.Hour).Format(intraTimeFormat),
+	)
 	for _, cursusID := range config.CursusIDs {
 		params := url.Values{}
 		params.Set("filter[primary_campus]", strconv.Itoa(config.CampusID))
@@ -113,7 +119,7 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 			if lastUpdate == nil {
 				adjusted = team.LockedAt
 			} else {
-				adjusted = lastUpdate.UTC()
+				adjusted = *lastUpdate
 			}
 			adjusted = adjusted.Add(-(24 * time.Hour))
 			if adjusted.Sub(expirationDate) <= 0 {
@@ -122,7 +128,7 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 				nWarned++
 			}
 		}
-		if lastUpdate != nil && lastUpdate.UTC().Sub(midnight) > 0 {
+		if lastUpdate != nil && lastUpdate.Sub(midnight) > 0 {
 			output(" CHEAT")
 		}
 		output("\n")
@@ -166,7 +172,7 @@ func main() {
 		sentry.Flush(5 * time.Second)
 		return
 	}
-	defer conn.Close()
+	defer sshConn.Close()
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UTC()
 	expirationDate := midnight.Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
