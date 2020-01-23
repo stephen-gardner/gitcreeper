@@ -82,12 +82,10 @@ func checkStagnant(team *intra.Team, midnight, expirationDate time.Time) (string
 		last = *lastUpdate
 		lastUpdateStr = lastUpdate.Local().String()
 	}
-	stagnant := last.Sub(expirationDate) <= 0
-	warning := last.Add(-24*time.Hour).Sub(expirationDate) <= 0
 	var status string
-	if stagnant {
+	if last.Sub(expirationDate) <= 0 {
 		status = STAGNANT
-	} else if warning {
+	} else if last.Add(-24*time.Hour).Sub(expirationDate) <= 0 {
 		status = WARNED
 	} else if last.Sub(time.Now().UTC()) > 0 {
 		status = CHEAT

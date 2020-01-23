@@ -80,7 +80,7 @@ func getVacations(login string) ([]Vacation, error) {
 	return vacations, err
 }
 
-// Return extra vacation time to add to project expiration
+// Return extra vacation time to extend project expiration date
 // Vacation time is averaged from applicable vacation days for all team members
 func calcVacationTime(team *intra.Team, lastUpdate *time.Time, midnight time.Time) time.Duration {
 	var last time.Time
