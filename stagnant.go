@@ -56,7 +56,7 @@ func getProjectName(team *intra.Team) string {
 }
 
 // Checks if most recent commit in master branch is older than expirationDate
-func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time, error) {
+func checkStagnant(team *intra.Team, midnight, expirationDate time.Time) (string, *time.Time, error) {
 	output(
 		"Checking <%d> %s (%s)... ",
 		team.ID,
@@ -65,22 +65,39 @@ func checkStagnant(team *intra.Team, expirationDate time.Time) (bool, *time.Time
 	)
 	lastUpdate, err := getLastUpdate(team)
 	if err != nil {
-		output("ERROR")
-		return false, nil, err
+		output("ERROR\n")
+		return "", nil, err
 	}
-	var stagnant bool
+	vacationTime := time.Duration(0)
+	if config.AllowVacations {
+		vacationTime = calcVacationTime(team, lastUpdate, midnight)
+		expirationDate = expirationDate.Add(-vacationTime)
+	}
+	var last time.Time
 	var lastUpdateStr string
 	if lastUpdate == nil {
-		stagnant = team.LockedAt.Sub(expirationDate) <= 0
+		last = team.LockedAt
 		lastUpdateStr = "never"
 	} else {
-		stagnant = lastUpdate.Sub(expirationDate) <= 0
+		last = *lastUpdate
 		lastUpdateStr = lastUpdate.Local().String()
 	}
-	status := "OK"
+	stagnant := last.Sub(expirationDate) <= 0
+	warning := last.Add(-24*time.Hour).Sub(expirationDate) <= 0
+	var status string
 	if stagnant {
-		status = "STAGNANT"
+		status = STAGNANT
+	} else if warning {
+		status = WARNED
+	} else if last.Sub(time.Now().UTC()) > 0 {
+		status = CHEAT
+	} else {
+		status = OK
 	}
-	output("%s [last update: %s]", status, lastUpdateStr)
-	return stagnant, lastUpdate, nil
+	output("%s [last update: %s", status, lastUpdateStr)
+	if vacationTime != 0 {
+		output(" + %.1f vacation days", vacationTime.Hours()/24.0)
+	}
+	output("]\n")
+	return status, lastUpdate, nil
 }

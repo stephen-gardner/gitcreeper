@@ -23,6 +23,8 @@ type Config struct {
 	ProjectStartingRange time.Time
 	DaysUntilStagnant    int
 	DaysToCorrect        int
+	AllowVacations       bool
+	VacationsEndpoint    string
 	RepoAddress          string
 	RepoPort             int
 	RepoUser             string
@@ -36,9 +38,14 @@ type Config struct {
 }
 
 const (
-	intraTimeFormat = "2006-01-02T15:04:05.000Z"
-	gitTimeFormat   = "Mon Jan 2 15:04:05 2006 -0700"
-	logTimeFormat   = "2006/01/02 15:04:05"
+	CHEAT                = "CHEAT"
+	OK                   = "OK"
+	STAGNANT             = "STAGNANT"
+	WARNED               = "WARNED"
+	gitTimeFormat        = "Mon Jan 2 15:04:05 2006 -0700"
+	intraTimeFormat      = "2006-01-02T15:04:05.000Z"
+	logTimeFormat        = "2006/01/02 15:04:05"
+	portalVacationFormat = "2006-01-02"
 )
 
 var config Config
@@ -99,12 +106,11 @@ func closeTeam(team *intra.Team, midnight time.Time) error {
 
 func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaunch bool) {
 	output("Processing...\n\n")
-	nStagnant := 0
-	nWarned := 0
+	ok, nStagnant, nWarned, nCheat := 0, 0, 0, 0
 	for i := range teams {
 		team := &teams[i]
-		stagnant, lastUpdate, err := checkStagnant(team, expirationDate)
-		if stagnant {
+		status, lastUpdate, err := checkStagnant(team, midnight, expirationDate)
+		if status == STAGNANT {
 			if prelaunch {
 				err = sendEmail(team, lastUpdate, prelaunchEmail)
 			} else {
@@ -113,35 +119,25 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 				}
 			}
 			nStagnant++
-		} else if !prelaunch {
-			// Check for teams that will stagnate within 24 hours
-			var adjusted time.Time
-			if lastUpdate == nil {
-				adjusted = team.LockedAt
-			} else {
-				adjusted = *lastUpdate
-			}
-			adjusted = adjusted.Add(-(24 * time.Hour))
-			if adjusted.Sub(expirationDate) <= 0 {
-				output("*")
-				err = sendEmail(team, lastUpdate, warningEmail)
-				nWarned++
-			}
+		} else if status == WARNED && !prelaunch {
+			err = sendEmail(team, lastUpdate, warningEmail)
+			nWarned++
+		} else if status == CHEAT {
+			nCheat++
+		} else {
+			ok++
 		}
-		if lastUpdate != nil && lastUpdate.Sub(midnight) > 0 {
-			output(" CHEAT")
-		}
-		output("\n")
 		if err != nil {
 			sentry.CaptureException(err)
 			continue
 		}
 	}
 	output(
-		"\nOK: %d (%.2f%%) WARNED: %d (%.2f%%) STAGNANT: %d (%.2f%%) TOTAL: %d\n",
-		len(teams)-nStagnant, 100*(float64(len(teams)-nStagnant)/float64(len(teams))),
+		"\nOK: %d (%.2f%%) WARNED: %d (%.2f%%) STAGNANT: %d (%.2f%%) CHEAT: %d TOTAL: %d\n",
+		ok, 100*(float64(ok)/float64(len(teams))),
 		nWarned, 100*(float64(nWarned)/float64(len(teams))),
 		nStagnant, 100*(float64(nStagnant)/float64(len(teams))),
+		nCheat,
 		len(teams),
 	)
 }

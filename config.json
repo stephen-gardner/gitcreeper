@@ -9,6 +9,8 @@
   "ProjectStartingRange": "2016-09-21T08:42:00.000Z",
   "DaysUntilStagnant": 7,
   "DaysToCorrect": 7,
+  "AllowVacations": false,
+  "VacationsEndpoint": "http://portal.42.us.org/vacations/query",
   "RepoAddress": "vgs-fd.42.us.org",
   "RepoPort": 4222,
   "RepoUser": "gitcreeper",
@@ -16,7 +18,7 @@
   "RepoPath": "/space/repos",
   "EmailServerAddress": "smtp.42.us.org:25",
   "EmailFromAddress": "gitcreeper-no-reply@42.us.org",
-  "SlackLogging": true,
+  "SlackLogging": false,
   "SlackOutputChannel": "GGYQNCYG7",
   "ProjectWhitelist": [
     1,
