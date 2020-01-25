@@ -7,8 +7,14 @@ import (
 	"time"
 
 	"gitcreeper/intra"
+)
 
-	"github.com/getsentry/sentry-go"
+const (
+	CHEAT         = "CHEAT"
+	OK            = "OK"
+	STAGNANT      = "STAGNANT"
+	WARNED        = "WARNED"
+	gitTimeFormat = "Mon Jan 2 15:04:05 2006 -0700"
 )
 
 func getIntraIDs(team *intra.Team) []string {
@@ -48,7 +54,7 @@ func getProjectName(team *intra.Team) string {
 	project := &intra.Project{}
 	err := project.GetProject(context.Background(), false, team.ProjectID)
 	if err != nil {
-		sentry.CaptureException(err)
+		outputErr(err, false)
 		return "Unknown Project"
 	} else {
 		return project.Name

@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"text/tabwriter"
 	"time"
+
+	"github.com/getsentry/sentry-go"
 )
 
 var logBuffer strings.Builder
@@ -20,9 +23,18 @@ func output(format string, args ...interface{}) {
 	_, _ = os.Stdout.WriteString(strings.ReplaceAll(out, "\t", " "))
 }
 
+func outputErr(err error, fatal bool) {
+	log.Println(err)
+	sentry.CaptureException(err)
+	if fatal {
+		sentry.Flush(5 * time.Second)
+		os.Exit(1)
+	}
+}
+
 func getFormattedOutput() string {
 	buff := &strings.Builder{}
-	tw := tabwriter.NewWriter(buff, 0, 8, 1, '\t', tabwriter.AlignRight)
+	tw := tabwriter.NewWriter(buff, 0, 1, 1, ' ', 0)
 	lines := strings.Split(logBuffer.String(), "\n")
 	header := true
 	for _, line := range lines {
@@ -57,6 +69,6 @@ func postLogs(midnight time.Time) error {
 	if err != nil {
 		return err
 	}
-	resp.Body.Close()
+	_ = resp.Body.Close()
 	return nil
 }

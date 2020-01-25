@@ -13,8 +13,6 @@ import (
 	"time"
 
 	"gitcreeper/intra"
-
-	"github.com/getsentry/sentry-go"
 )
 
 type (
@@ -26,6 +24,8 @@ type (
 		End   VacationTime `json:"end_time"`
 	}
 )
+
+const portalVacationFormat = "2006-01-02"
 
 func (vt *VacationTime) UnmarshalJSON(data []byte) error {
 	raw := strings.Trim(string(data), "\"")
@@ -96,7 +96,7 @@ func calcVacationTime(team *intra.Team, lastUpdate *time.Time, midnight time.Tim
 	for _, user := range team.Users {
 		vacations, err := getVacations(user.Login)
 		if err != nil {
-			sentry.CaptureException(err)
+			outputErr(err, false)
 			continue
 		}
 		for _, v := range vacations {

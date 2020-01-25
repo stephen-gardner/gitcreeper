@@ -38,14 +38,8 @@ type Config struct {
 }
 
 const (
-	CHEAT                = "CHEAT"
-	OK                   = "OK"
-	STAGNANT             = "STAGNANT"
-	WARNED               = "WARNED"
-	gitTimeFormat        = "Mon Jan 2 15:04:05 2006 -0700"
-	intraTimeFormat      = "2006-01-02T15:04:05.000Z"
-	logTimeFormat        = "2006/01/02 15:04:05"
-	portalVacationFormat = "2006-01-02"
+	intraTimeFormat = "2006-01-02T15:04:05.000Z"
+	logTimeFormat   = "2006/01/02 15:04:05"
 )
 
 var config Config
@@ -72,7 +66,7 @@ func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
 		params.Set("page[size]", "100")
 		teams := &intra.Teams{}
 		if err := teams.GetAllTeams(context.Background(), params); err != nil {
-			sentry.CaptureException(err)
+			outputErr(err, false)
 		}
 		// Check if team is on the whitelist and that it has a local repository
 		for _, team := range *teams {
@@ -110,25 +104,27 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 	for i := range teams {
 		team := &teams[i]
 		status, lastUpdate, err := checkStagnant(team, midnight, expirationDate)
-		if status == STAGNANT {
+		switch status {
+		case STAGNANT:
 			if prelaunch {
 				err = sendEmail(team, lastUpdate, prelaunchEmail)
-			} else {
-				if err = closeTeam(team, midnight); err == nil {
-					err = sendEmail(team, lastUpdate, closedEmail)
-				}
+			} else if err = closeTeam(team, midnight); err == nil {
+				err = sendEmail(team, lastUpdate, closedEmail)
 			}
 			nStagnant++
-		} else if status == WARNED && !prelaunch {
+		case WARNED:
+			if prelaunch {
+				break
+			}
 			err = sendEmail(team, lastUpdate, warningEmail)
 			nWarned++
-		} else if status == CHEAT {
+		case CHEAT:
 			nCheat++
-		} else {
+		case OK:
 			ok++
 		}
 		if err != nil {
-			sentry.CaptureException(err)
+			outputErr(err, false)
 			continue
 		}
 	}
@@ -165,25 +161,21 @@ func loadConfig(path string) error {
 
 func main() {
 	if err := loadConfig("config.json"); err != nil {
-		sentry.CaptureException(err)
-		sentry.Flush(5 * time.Second)
-		return
+		outputErr(err, true)
 	}
 	if err := sshConnect(); err != nil {
-		sentry.CaptureException(err)
-		sentry.Flush(5 * time.Second)
-		return
+		outputErr(err, true)
 	}
 	defer sshConn.Close()
 	now := time.Now()
 	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location()).UTC()
-	expirationDate := midnight.Add(- (time.Duration(config.DaysUntilStagnant) * 24 * time.Hour))
+	expirationDate := midnight.Add(-time.Duration(config.DaysUntilStagnant) * 24 * time.Hour)
 	teams := getEligibleTeams(expirationDate)
 	processTeams(teams, midnight, expirationDate, midnight.Sub(config.StartClosingAt) < 0)
 	output("%s Creeping complete!\n", time.Now().Format(logTimeFormat))
 	if config.SlackLogging {
 		if err := postLogs(midnight); err != nil {
-			sentry.CaptureException(err)
+			outputErr(err, false)
 		}
 	}
 	sentry.Flush(5 * time.Second)
