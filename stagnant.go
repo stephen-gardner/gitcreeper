@@ -58,7 +58,7 @@ func getProjectName(team *intra.Team) string {
 // Checks if most recent commit in master branch is older than expirationDate
 func checkStagnant(team *intra.Team, midnight, expirationDate time.Time) (string, *time.Time, error) {
 	output(
-		"Checking <%d> %s (%s)... ",
+		"Checking\t<%d>\t%s\t(%s)...\t",
 		team.ID,
 		getProjectName(team),
 		strings.Join(getIntraIDs(team), ", "),
@@ -77,10 +77,10 @@ func checkStagnant(team *intra.Team, midnight, expirationDate time.Time) (string
 	var lastUpdateStr string
 	if lastUpdate == nil {
 		last = team.LockedAt
-		lastUpdateStr = "never"
+		lastUpdateStr = "Never"
 	} else {
 		last = *lastUpdate
-		lastUpdateStr = lastUpdate.Local().String()
+		lastUpdateStr = lastUpdate.Local().Format(time.RFC1123)
 	}
 	var status string
 	if last.Sub(expirationDate) <= 0 {
@@ -92,7 +92,7 @@ func checkStagnant(team *intra.Team, midnight, expirationDate time.Time) (string
 	} else {
 		status = OK
 	}
-	output("%s [last update: %s", status, lastUpdateStr)
+	output("%s\t[Last update: %s", status, lastUpdateStr)
 	if vacationTime != 0 {
 		output(" + %.1f vacation days", vacationTime.Hours()/24.0)
 	}

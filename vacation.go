@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gitcreeper/intra"
-	"github.com/getsentry/sentry-go"
 	"io/ioutil"
 	"math"
 	"net/http"
@@ -13,6 +11,10 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"gitcreeper/intra"
+
+	"github.com/getsentry/sentry-go"
 )
 
 type (

@@ -132,14 +132,20 @@ func processTeams(teams intra.Teams, midnight, expirationDate time.Time, prelaun
 			continue
 		}
 	}
-	output(
-		"\nOK: %d (%.2f%%) WARNED: %d (%.2f%%) STAGNANT: %d (%.2f%%) CHEAT: %d TOTAL: %d\n",
-		ok, 100*(float64(ok)/float64(len(teams))),
-		nWarned, 100*(float64(nWarned)/float64(len(teams))),
-		nStagnant, 100*(float64(nStagnant)/float64(len(teams))),
-		nCheat,
-		len(teams),
-	)
+	output("\n")
+	stats := []struct {
+		label string
+		count int
+	}{
+		{"OK", ok},
+		{"WARNED", nWarned},
+		{"STAGNANT", nStagnant},
+		{"CHEAT", nCheat},
+	}
+	for _, stat := range stats {
+		output("%8s %4d (%.2f%%)\n", stat.label, stat.count, 100*float64(stat.count)/float64(len(teams)))
+	}
+	output("\n")
 }
 
 func loadConfig(path string) error {
