@@ -2,7 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"os"
 	"strings"
 	"time"
 
@@ -50,14 +53,41 @@ func getLastUpdate(team *intra.Team) (*time.Time, error) {
 	return &lastUpdate, nil
 }
 
-func getProjectName(team *intra.Team) string {
+func getProjectName(projectID int) string {
+	if name, present := projectNames[projectID]; present {
+		return name
+	}
+	projectNamesCacheUpdated = true
 	project := &intra.Project{}
-	err := project.GetProject(context.Background(), false, team.ProjectID)
+	err := project.GetProject(context.Background(), false, projectID)
 	if err != nil {
 		outputErr(err, false)
 		return "Unknown Project"
-	} else {
-		return project.Name
+	}
+	projectNames[projectID] = project.Name
+	return project.Name
+}
+
+func loadProjectNames(path string) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return
+	}
+	data, err := ioutil.ReadFile(path)
+	if err == nil {
+		err = json.Unmarshal(data, &projectNames)
+	}
+	if err != nil {
+		outputErr(err, false)
+	}
+}
+
+func saveProjectNames(path string) {
+	data, err := json.Marshal(&projectNames)
+	if err == nil {
+		err = ioutil.WriteFile(path, data, os.FileMode(0666))
+	}
+	if err != nil {
+		outputErr(err, false)
 	}
 }
 
@@ -66,7 +96,7 @@ func checkStagnant(team *intra.Team, midnight, expirationDate time.Time) (string
 	output(
 		"Checking\t<%d>\t%s\t(%s)...\t",
 		team.ID,
-		getProjectName(team),
+		getProjectName(team.ProjectID),
 		strings.Join(getIntraIDs(team), ", "),
 	)
 	lastUpdate, err := getLastUpdate(team)

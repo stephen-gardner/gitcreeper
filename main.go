@@ -38,12 +38,17 @@ type Config struct {
 }
 
 const (
-	intraTimeFormat = "2006-01-02T15:04:05.000Z"
-	logTimeFormat   = "2006/01/02 15:04:05"
+	intraTimeFormat   = "2006-01-02T15:04:05.000Z"
+	logTimeFormat     = "2006/01/02 15:04:05"
+	projectNamesCache = ".project_names"
 )
 
-var config Config
-var projectWhitelist = make(map[int]bool)
+var (
+	config                   Config
+	projectWhitelist         = make(map[int]bool)
+	projectNames             = make(map[int]string)
+	projectNamesCacheUpdated = false
+)
 
 // Return teams that may be stagnant according to config
 func getEligibleTeams(expirationDate time.Time) (res intra.Teams) {
@@ -90,7 +95,7 @@ func closeTeam(team *intra.Team, midnight time.Time) error {
 	params := url.Values{}
 	params.Set("team[closed_at]", patched.ClosedAt.Format(intraTimeFormat))
 	params.Set("team[terminating_at]", patched.TerminatingAt.Format(intraTimeFormat))
-	_, _, err := patched.PatchTeam(context.Background(), params, true)
+	_, _, err := patched.PatchTeam(context.Background(), true, params)
 	if err != nil {
 		return err
 	}
@@ -155,6 +160,7 @@ func loadConfig(path string) error {
 	for _, ID := range config.ProjectWhitelist {
 		projectWhitelist[ID] = true
 	}
+	loadProjectNames(projectNamesCache)
 	output("%s GitCreeper started...\n", time.Now().Format(logTimeFormat))
 	return nil
 }
@@ -177,6 +183,10 @@ func main() {
 		if err := postLogs(midnight); err != nil {
 			outputErr(err, false)
 		}
+	}
+	// Cache project names so that Intra doesn't have to be repeatedly queried for constants
+	if projectNamesCacheUpdated {
+		saveProjectNames(projectNamesCache)
 	}
 	sentry.Flush(5 * time.Second)
 }

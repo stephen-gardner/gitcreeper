@@ -67,7 +67,7 @@ func sendEmail(team *intra.Team, lastUpdate *time.Time, emailType string) error 
 	}
 	vars := map[string]string{
 		"to":          strings.Join(to, ","),
-		"projectName": getProjectName(team),
+		"projectName": getProjectName(team.ProjectID),
 	}
 	if lastUpdate != nil {
 		vars["lastUpdate"] = lastUpdate.Local().Format(time.RFC1123)

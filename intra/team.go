@@ -41,7 +41,7 @@ type (
 	Teams []Team
 )
 
-func (team *Team) PatchTeam(ctx context.Context, params url.Values, updateCache bool) (int, []byte, error) {
+func (team *Team) PatchTeam(ctx context.Context, updateCache bool, params url.Values) (int, []byte, error) {
 	endpoint := getEndpoint("teams/"+strconv.Itoa(team.ID), nil)
 	status, respData, err := runRequest(getClient(ctx, "public", "projects"), http.MethodPatch, endpoint, params)
 	if err == nil && updateCache {
